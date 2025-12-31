@@ -60,7 +60,6 @@ export async function getTenantProfile() {
         select: {
             id: true,
             name: true,
-            email: true, // Should we expose this? It's ownerEmail in schema or User email? Schema has ownerEmail.
             ownerName: true,
             ownerEmail: true,
             website: true,
