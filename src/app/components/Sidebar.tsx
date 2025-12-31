@@ -6,7 +6,7 @@ import { ThemeToggle } from './ThemeToggle'
 import { useSidebarStore } from '@/store/sidebarStore'
 import { logout } from '@/app/actions/auth'
 
-export function Sidebar() {
+export function Sidebar({ tenantName }: { tenantName: string }) {
     const pathname = usePathname()
     const { isCollapsed, toggle } = useSidebarStore()
 
@@ -51,7 +51,7 @@ export function Sidebar() {
                         <p className="text-xs text-[var(--text-muted)] uppercase font-semibold mb-1">Tenant Atual</p>
                         <div className="flex items-center gap-2">
                             <div className="w-2 h-2 rounded-full bg-[var(--success)]"></div>
-                            <p className="text-sm font-medium text-[var(--text-primary)] truncate">Grupo JVS</p>
+                            <p className="text-sm font-medium text-[var(--text-primary)] truncate">{tenantName}</p>
                         </div>
                     </div>
                 </div>

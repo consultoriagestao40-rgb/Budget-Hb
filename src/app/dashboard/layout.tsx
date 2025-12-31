@@ -12,11 +12,13 @@ export default async function DashboardLayout({
 }) {
     const session = await getIronSession<SessionData>(await cookies(), sessionOptions)
 
+    let tenantName = 'Minha Empresa'
+
     if (session.isLoggedIn && session.tenantId) {
         // Check tenant status
         const tenant = await prisma.tenant.findUnique({
             where: { id: session.tenantId },
-            select: { status: true }
+            select: { status: true, name: true }
         })
 
         if (!tenant || tenant.status === 'BLOCKED') {
@@ -26,10 +28,14 @@ export default async function DashboardLayout({
                 redirect('/payment-required')
             }
         }
+
+        if (tenant?.name) {
+            tenantName = tenant.name
+        }
     }
 
     return (
-        <DashboardClientLayout>
+        <DashboardClientLayout tenantName={tenantName}>
             {children}
         </DashboardClientLayout>
     )

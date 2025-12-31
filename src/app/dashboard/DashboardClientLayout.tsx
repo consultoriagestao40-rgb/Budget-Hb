@@ -5,14 +5,16 @@ import { useSidebarStore } from '@/store/sidebarStore'
 
 export function DashboardClientLayout({
     children,
+    tenantName,
 }: {
     children: React.ReactNode
+    tenantName: string
 }) {
     const { isCollapsed } = useSidebarStore()
 
     return (
         <div className="flex min-h-screen bg-[var(--bg-main)]">
-            <Sidebar />
+            <Sidebar tenantName={tenantName} />
             <main
                 className={`flex-1 p-8 transition-all duration-300 ${isCollapsed ? 'ml-[80px]' : 'ml-[260px]'}`}
             >
