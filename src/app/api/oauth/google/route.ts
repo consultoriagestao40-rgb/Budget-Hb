@@ -14,6 +14,7 @@ export async function GET(): Promise<Response> {
         httpOnly: true,
         maxAge: 60 * 10, // 10 minutes
         sameSite: "lax",
+        domain: process.env.NODE_ENV === "production" ? ".budgethub.com.br" : undefined
     });
     cookieStore.set("google_oauth_code_verifier", codeVerifier, {
         path: "/",
@@ -21,6 +22,7 @@ export async function GET(): Promise<Response> {
         httpOnly: true,
         maxAge: 60 * 10, // 10 minutes
         sameSite: "lax",
+        domain: process.env.NODE_ENV === "production" ? ".budgethub.com.br" : undefined
     });
 
     return Response.redirect(url);

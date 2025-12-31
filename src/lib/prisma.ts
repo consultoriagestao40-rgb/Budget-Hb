@@ -1,6 +1,6 @@
-// Import from custom local path to bypass node_modules caching issues in Next.js/Turbopack
-export * from '../../prisma/client'
-import { PrismaClient } from '../../prisma/client'
+// Import from standard @prisma/client for Vercel compatibility
+import { PrismaClient } from '@prisma/client'
+export * from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as {
     prisma: PrismaClient | undefined
