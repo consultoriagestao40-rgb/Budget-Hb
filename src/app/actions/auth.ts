@@ -147,6 +147,6 @@ export async function registerTenant(formData: FormData) {
     } catch (e) {
         if (e instanceof Error && e.message === 'NEXT_REDIRECT') throw e
         console.error(e)
-        return { error: 'Erro ao criar conta. Tente novamente.' }
+        return { error: `Erro: ${(e as Error).message}` }
     }
 }
