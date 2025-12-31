@@ -1,3 +1,5 @@
+'use client'
+
 import { TenantWithStats, updateTenantStatus, updateTenantPlan, deleteTenant } from '@/app/actions/admin' // ADDED deleteTenant
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
