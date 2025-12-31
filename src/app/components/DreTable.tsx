@@ -17,8 +17,11 @@ export function DreTable({ initialData, tenantId, year, availableCompanies, filt
     availableCompanies: { id: string, name: string }[],
     filters?: {
         companyId?: string
+        departmentId?: string
         costCenterId?: string
+        segmentId?: string
         clientId?: string
+        ccSegmentId?: string
     },
     activeVersionId: string
     userRole: string
@@ -208,7 +211,9 @@ export function DreTable({ initialData, tenantId, year, availableCompanies, filt
             await batchUpdateBudgetEntries(tenantId, editTarget.id, year, entries, activeVersionId, {
                 companyId: targetCompanyId!,
                 costCenterId: filters.costCenterId,
-                clientId: filters.clientId
+                clientId: filters.clientId,
+                groupingId: filters.departmentId,
+                segmentId: filters.segmentId
             })
             setIsEditModalOpen(false)
         } catch (error: any) {

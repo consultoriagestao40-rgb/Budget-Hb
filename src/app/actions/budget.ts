@@ -18,6 +18,8 @@ export async function updateBudgetEntry(
         companyId: string
         costCenterId?: string | null
         clientId?: string | null
+        groupingId?: string | null
+        segmentId?: string | null
     }
 ) {
     // 1. Auth Check
@@ -41,7 +43,10 @@ export async function updateBudgetEntry(
             year,
             budgetVersionId,
             companyId: dimensions.companyId,
-            // simplifying match
+            costCenterId: dimensions.costCenterId,
+            clientId: dimensions.clientId,
+            groupingId: dimensions.groupingId,
+            segmentId: dimensions.segmentId
         }
     })
 
@@ -66,7 +71,9 @@ export async function updateBudgetEntry(
                     budgetVersionId,
                     companyId: dimensions.companyId,
                     costCenterId: dimensions.costCenterId,
-                    clientId: dimensions.clientId
+                    clientId: dimensions.clientId,
+                    groupingId: dimensions.groupingId,
+                    segmentId: dimensions.segmentId
                 }
             })
         }
@@ -85,6 +92,8 @@ export async function batchUpdateBudgetEntries(
         companyId: string
         costCenterId?: string | null
         clientId?: string | null
+        groupingId?: string | null
+        segmentId?: string | null
     }
 ) {
     const session = await getIronSession<SessionData>(await cookies(), sessionOptions)
@@ -108,7 +117,9 @@ export async function batchUpdateBudgetEntries(
                     budgetVersionId,
                     companyId: dimensions.companyId,
                     costCenterId: dimensions.costCenterId,
-                    clientId: dimensions.clientId
+                    clientId: dimensions.clientId,
+                    groupingId: dimensions.groupingId,
+                    segmentId: dimensions.segmentId
                 }
             })
 
@@ -129,7 +140,9 @@ export async function batchUpdateBudgetEntries(
                         budgetVersionId,
                         companyId: dimensions.companyId,
                         costCenterId: dimensions.costCenterId,
-                        clientId: dimensions.clientId
+                        clientId: dimensions.clientId,
+                        groupingId: dimensions.groupingId,
+                        segmentId: dimensions.segmentId
                     }
                 })
             }
