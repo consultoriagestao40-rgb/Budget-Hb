@@ -14,6 +14,15 @@ export async function GET(request: Request): Promise<Response> {
     const storedCodeVerifier = cookieStore.get("google_oauth_code_verifier")?.value ?? null;
 
     if (!code || !state || !storedState || !storedCodeVerifier || state !== storedState) {
+        console.error("OAuth 400 Error Details:", {
+            hasCode: !!code,
+            hasState: !!state,
+            hasStoredState: !!storedState,
+            hasStoredVerifier: !!storedCodeVerifier,
+            stateMatch: state === storedState,
+            cookieState: storedState,
+            paramState: state
+        });
         return new Response(null, {
             status: 400
         });

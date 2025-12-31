@@ -7,26 +7,20 @@ export async function GET(request: Request): Promise<Response> {
     const codeVerifier = generateCodeVerifier();
     const url = await google.createAuthorizationURL(state, codeVerifier, ["profile", "email"]);
 
-    const host = request.headers.get("host") ?? "";
-    const isProductionDomain = host.includes("budgethub.com.br");
-    const cookieDomain = isProductionDomain ? ".budgethub.com.br" : undefined;
-
     const cookieStore = await cookies();
     cookieStore.set("google_oauth_state", state, {
         path: "/",
         secure: process.env.NODE_ENV === "production",
         httpOnly: true,
-        maxAge: 60 * 10, // 10 minutes
-        sameSite: "lax",
-        domain: cookieDomain
+        maxAge: 60 * 10,
+        sameSite: "lax"
     });
     cookieStore.set("google_oauth_code_verifier", codeVerifier, {
         path: "/",
         secure: process.env.NODE_ENV === "production",
         httpOnly: true,
-        maxAge: 60 * 10, // 10 minutes
-        sameSite: "lax",
-        domain: cookieDomain
+        maxAge: 60 * 10,
+        sameSite: "lax"
     });
 
     return Response.redirect(url);
