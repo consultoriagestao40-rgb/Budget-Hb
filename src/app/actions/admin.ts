@@ -84,3 +84,47 @@ export async function updateTenantPlan(tenantId: string, plan: string) {
 
     revalidatePath('/admin')
 }
+
+export async function deleteTenant(tenantId: string) {
+    await checkSuperAdmin()
+
+    // Prisma handles cascade deletes if configured, but let's be safe and explicit or rely on relation onDelete: Cascade.
+    // Looking at schema, we don't have explicit Cascade on all relations (detected via User relation).
+    // Let's rely on Prisma's ability or do a transaction.
+    // Ideally schema should have onDelete: Cascade. 
+    // Checking schema: User -> Tenant (no cascade), Company -> Tenant (no cascade).
+    // So we must delete children first.
+
+    await prisma.$transaction(async (tx) => {
+        // Delete related data in order of dependency
+        // 1. Budget Entries
+        await tx.budgetEntry.deleteMany({ where: { tenantId } })
+
+        // 2. Budget Versions
+        await tx.budgetVersion.deleteMany({ where: { tenantId } })
+
+        // 3. User Permissions
+        const users = await tx.user.findMany({ where: { tenantId }, select: { id: true } })
+        const userIds = users.map(u => u.id)
+        await tx.userPermission.deleteMany({ where: { userId: { in: userIds } } })
+
+        // 4. Users
+        await tx.user.deleteMany({ where: { tenantId } })
+
+        // 5. Structure (Cost Centers, Companies, etc.)
+        await tx.costCenter.deleteMany({ where: { tenantId } })
+        await tx.costCenterGroup.deleteMany({ where: { tenantId } })
+        await tx.costCenterSegment.deleteMany({ where: { tenantId } })
+        await tx.grouping.deleteMany({ where: { tenantId } })
+        await tx.segment.deleteMany({ where: { tenantId } })
+        await tx.client.deleteMany({ where: { tenantId } })
+        await tx.city.deleteMany({ where: { tenantId } })
+        await tx.company.deleteMany({ where: { tenantId } })
+        await tx.accountPlan.deleteMany({ where: { tenantId } })
+
+        // 6. Finally Delete Tenant
+        await tx.tenant.delete({ where: { id: tenantId } })
+    })
+
+    revalidatePath('/admin')
+}

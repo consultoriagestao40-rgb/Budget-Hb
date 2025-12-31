@@ -1,6 +1,4 @@
-'use client'
-
-import { TenantWithStats, updateTenantStatus, updateTenantPlan } from '@/app/actions/admin'
+import { TenantWithStats, updateTenantStatus, updateTenantPlan, deleteTenant } from '@/app/actions/admin' // ADDED deleteTenant
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
@@ -32,6 +30,25 @@ export function AdminTenantsTable({ tenants }: { tenants: TenantWithStats[] }) {
         }
     }
 
+    const handleDelete = async (id: string, name: string) => {
+        if (!confirm(`TEM CERTEZA QUE DESEJA EXCLUIR A EMPRESA "${name}"?\n\nIsso apagará TODOS os dados (Usuários, Orçamentos, etc) permanentemente.\nEssa ação não pode ser desfeita.`)) return
+
+        // Double confirm
+        const confirmName = prompt(`Para confirmar, digite o nome da empresa: ${name}`)
+        if (confirmName !== name) {
+            return alert('Nome incorreto. Operação cancelada.')
+        }
+
+        setLoadingId(id)
+        try {
+            await deleteTenant(id)
+        } catch (e: any) {
+            alert('Erro ao excluir: ' + e.message)
+        } finally {
+            setLoadingId(null)
+        }
+    }
+
     return (
         <div className="bg-[var(--bg-surface)] rounded-lg border border-[var(--border-subtle)] overflow-hidden">
             <table className="w-full text-sm text-left">
@@ -41,7 +58,7 @@ export function AdminTenantsTable({ tenants }: { tenants: TenantWithStats[] }) {
                         <th className="p-4 font-medium">Contato</th>
                         <th className="p-4 font-medium">Plano</th>
                         <th className="p-4 font-medium">Status</th>
-                        <th className="p-4 font-medium text-right">Stats</th>
+                        <th className="p-4 font-medium text-right">Ações</th> {/* Renamed from Stats */}
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--border-subtle)]">
@@ -83,9 +100,25 @@ export function AdminTenantsTable({ tenants }: { tenants: TenantWithStats[] }) {
                                     <option value="TRIAL">TRIAL</option>
                                 </select>
                             </td>
-                            <td className="p-4 text-right text-xs text-[var(--text-secondary)]">
-                                <div>Available Users: {tenant._count.users}</div>
-                                <div>Companies: {tenant._count.companies}</div>
+                            <td className="p-4 text-right flex items-center justify-end gap-2">
+                                <div className="text-xs text-[var(--text-secondary)] mr-2">
+                                    <div title="Usuários">Users: {tenant._count.users}</div>
+                                </div>
+
+                                <button
+                                    onClick={() => handleDelete(tenant.id, tenant.name)}
+                                    disabled={loadingId === tenant.id}
+                                    className="p-2 text-red-500 hover:bg-red-500/10 rounded transition-colors"
+                                    title="Excluir Empresa Permanentemente"
+                                >
+                                    {loadingId === tenant.id ? '...' : (
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <path d="M3 6h18" />
+                                            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+                                            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+                                        </svg>
+                                    )}
+                                </button>
                             </td>
                         </tr>
                     ))}
