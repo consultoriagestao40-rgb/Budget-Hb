@@ -1,0 +1,311 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "./client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// --- Auth & Multi-tenancy ---
+
+model Tenant {
+  id        String   @id @default(uuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  dreTitle  String?  @default("Demonstrativo de Resultados (DRE)")
+  
+  // SaaS Fields
+  status    String   @default("ACTIVE") // ACTIVE, BLOCKED, TRIAL
+  plan      String   @default("FREE")     // FREE, PRO, ENTERPRISE
+  ownerName String?
+  ownerEmail String?
+  
+  // Year Configuration
+  minYear   Int      @default(2024)
+  maxYear   Int      @default(2027)
+
+  users          User[]
+  companies      Company[]
+  costCenters    CostCenter[]
+  accountPlans   AccountPlan[]
+  groupings      Grouping[]
+  clients        Client[]
+  segments       Segment[]
+  budgetVersions BudgetVersion[]
+  
+  cities             City[]
+  costCenterGroups   CostCenterGroup[]
+  costCenterSegments CostCenterSegment[]
+  
+  budgetEntries BudgetEntry[]
+}
+
+model User {
+  id       String @id @default(uuid())
+  email    String @unique
+  name     String
+  password String // Hash it in production
+  
+  tenantId String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+
+  role     String @default("USER") // ADMIN, USER
+  mustChangePassword Boolean @default(false)
+
+  permissions UserPermission[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  googleId  String? @unique
+}
+
+model UserPermission {
+  id        String   @id @default(uuid())
+  
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+
+  // Granular Access (if null, access allowed? or explicit grant?)
+  // Logic: If user has ANY permission for Type=Company, they only see those listed.
+  // If no permissions, default DENY or ALLOW ALL depending on policy.
+  // Let's go with: "Permissions define what you CAN see. If empty, you see nothing (unless Admin)."
+
+  companyId String?
+  company   Company? @relation(fields: [companyId], references: [id])
+
+  costCenterId String?
+  costCenter   CostCenter? @relation(fields: [costCenterId], references: [id])
+
+  canView   Boolean @default(true)
+  canEdit   Boolean @default(false)
+  canCreate Boolean @default(false)
+  canDelete Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// --- Dimensions ---
+
+
+model Company {
+  id        String   @id @default(uuid())
+  name      String
+  code      String?
+  
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  
+  departments Grouping[]
+  
+  budgetEntries BudgetEntry[]
+  permissions   UserPermission[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Grouping {
+  id        String   @id @default(uuid())
+  name      String
+
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+
+  // Department belongs to Company
+  companyId String?
+  company   Company? @relation(fields: [companyId], references: [id])
+
+  costCenters CostCenter[]
+  segments    Segment[]
+
+  budgetEntries BudgetEntry[]
+}
+
+
+model City {
+  id        String   @id @default(uuid())
+  name      String
+  state     String   // UF
+
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+
+  costCenters CostCenter[]
+}
+
+model CostCenterGroup { // Agrupamento
+  id        String   @id @default(uuid())
+  name      String
+
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+
+  costCenters CostCenter[]
+}
+
+model CostCenterSegment { // Seguimento (Specific to Cost Center)
+  id        String   @id @default(uuid())
+  name      String
+
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+
+  costCenters CostCenter[]
+}
+
+model CostCenter {
+  id        String   @id @default(uuid())
+  name      String
+  code      String?
+
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+
+  // Relations
+  groupingId String? // Department
+  grouping   Grouping? @relation(fields: [groupingId], references: [id])
+  
+  clientId   String?
+  client     Client?   @relation(fields: [clientId], references: [id])
+
+  cityId     String?
+  city       City?     @relation(fields: [cityId], references: [id])
+
+  groupId    String?   // Agrupamento
+  group      CostCenterGroup? @relation(fields: [groupId], references: [id])
+
+  segmentId  String?   // Seguimento
+  segment    CostCenterSegment? @relation(fields: [segmentId], references: [id])
+
+  budgetEntries BudgetEntry[]
+  permissions   UserPermission[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Client {
+  id        String   @id @default(uuid())
+  name      String
+
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+
+  // Client is now independent of Cost Center (One Client -> Many CCs handled by CC having clientId)
+  costCenters CostCenter[]
+
+  budgetEntries BudgetEntry[]
+}
+
+model Segment { // Keep existing Segment (Centros de Despesa) as is? Or rename to avoid confusion? 
+// User asked for "Centros de Despesa" (Expense Center) linked to Department. 
+// AND "Seguimento" linked to Cost Center.
+// Currently Segment is mapped to "Centro de Despesa".
+// So "CostCenterSegment" is the new one for Cost Center.
+  id        String   @id @default(uuid())
+  name      String
+
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+
+  // Expense Center belongs to Department (Grouping)
+  groupingId String?
+  grouping   Grouping? @relation(fields: [groupingId], references: [id])
+
+  budgetEntries BudgetEntry[]
+}
+
+
+
+// --- Core DRE / Account Plan ---
+
+model AccountPlan {
+  id          String   @id @default(uuid())
+  code        String   // e.g., "1.1", "1.2"
+  name        String
+  description String?
+  
+  type        String   // "INPUT" or "CALCULATED"
+  formula     String?  // e.g., "@1.1 - @1.2" (referencing codes)
+  percentage  Float?    // For specific calculations like social charges (e.g. 20.0 for 20%)
+  baseCode    String?  // Reference code for percentage calculation (e.g. "4.1.1")
+  
+  parentId    String?
+  parent      AccountPlan?  @relation("AccountHierarchy", fields: [parentId], references: [id])
+  children    AccountPlan[] @relation("AccountHierarchy")
+
+  tenantId    String
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+
+  budgetEntries BudgetEntry[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tenantId, code])
+}
+
+model BudgetVersion {
+  id        String   @id @default(uuid())
+  name      String
+  color     String?  @default("#3b82f6") // blue-500 e.g.
+  
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  
+  budgetEntries BudgetEntry[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@unique([tenantId, name])
+}
+
+// --- Budget Values ---
+
+model BudgetEntry {
+  id            String   @id @default(uuid())
+  
+  month         Int      // 1-12
+  year          Int
+  amount        Float    @default(0)
+
+  // Dimensions
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id])
+  
+  budgetVersionId String?
+  budgetVersion   BudgetVersion? @relation(fields: [budgetVersionId], references: [id])
+  
+  accountId     String
+  account       AccountPlan @relation(fields: [accountId], references: [id])
+
+  companyId     String
+  company       Company     @relation(fields: [companyId], references: [id])
+
+  costCenterId  String?
+  costCenter    CostCenter? @relation(fields: [costCenterId], references: [id])
+
+  groupingId    String?
+  grouping      Grouping?   @relation(fields: [groupingId], references: [id])
+
+  clientId      String?
+  client        Client?     @relation(fields: [clientId], references: [id])
+
+  segmentId     String?
+  segment       Segment?    @relation(fields: [segmentId], references: [id])
+
+  city          String?
+  state         String?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([tenantId, year, month])
+}

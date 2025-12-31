@@ -1,0 +1,245 @@
+import { prisma, AccountPlan, BudgetEntry } from '@/lib/prisma'
+import { DreView } from './DreView'
+import { DreRow } from '@/types/dre'
+import { getIronSession } from 'iron-session'
+import { cookies } from 'next/headers'
+import { sessionOptions, SessionData } from '@/lib/session'
+import { redirect } from 'next/navigation'
+
+async function getDreData(
+    tenantId: string,
+    year: number,
+    filters: {
+        companyId?: string
+        costCenterId?: string
+        clientId?: string
+        versionId: string
+        segmentId?: string // Centro de Despesa
+        ccSegmentId?: string // Seguimento
+        cityId?: string
+        state?: string
+    }
+) {
+    // 1. Fetch Account Plan
+    const accounts = await prisma.accountPlan.findMany({
+        where: { tenantId },
+        orderBy: { code: 'asc' }
+    })
+
+    // 2. Fetch Budget Entries for the year
+    const whereClause: any = {
+        tenantId,
+        year,
+        budgetVersionId: filters.versionId,
+    }
+
+    if (filters.companyId && filters.companyId !== 'all') whereClause.companyId = filters.companyId
+    if (filters.costCenterId && filters.costCenterId !== 'all') whereClause.costCenterId = filters.costCenterId
+    if (filters.clientId && filters.clientId !== 'all') whereClause.clientId = filters.clientId
+    if (filters.segmentId && filters.segmentId !== 'all') whereClause.segmentId = filters.segmentId
+
+    // Complex relationships filters
+    if (filters.ccSegmentId && filters.ccSegmentId !== 'all') {
+        whereClause.costCenter = { segmentId: filters.ccSegmentId }
+    }
+
+    if (filters.cityId && filters.cityId !== 'all') {
+        // Resolve City Name? No, filter by linking to CostCenter or if BudgetEntry has cityId... 
+        // Based on previous analysis, we'll try filtering via CostCenter cityId relationship if available
+        // OR rely on BudgetEntry denormalized fields if they match.
+        // Assuming CostCenter relationship is safest for metadata not on Entry
+        whereClause.costCenter = { ...whereClause.costCenter, cityId: filters.cityId }
+    }
+
+    if (filters.state && filters.state !== 'all') {
+        whereClause.costCenter = {
+            ...whereClause.costCenter,
+            city: { state: filters.state }
+        }
+    }
+
+    const entries = await prisma.budgetEntry.findMany({
+        where: whereClause
+    })
+
+    // 3. Transform to Tree & Calculate
+    const accountMap = new Map<string, DreRow>()
+
+    // Initialize rows
+    accounts.forEach(acc => {
+        accountMap.set(acc.id, {
+            id: acc.id,
+            code: acc.code,
+            name: acc.name,
+            type: acc.type,
+            formula: acc.formula,
+            percentage: acc.percentage,
+            baseCode: acc.baseCode,
+            parentId: acc.parentId,
+            values: Array(12).fill(0),
+            children: [],
+            level: acc.code.split('.').length - 1
+        })
+    })
+
+    // Fill Input Values
+    entries.forEach(entry => {
+        const row = accountMap.get(entry.accountId)
+        if (row && row.type === 'INPUT') {
+            row.values[entry.month - 1] += entry.amount
+        }
+    })
+
+    // Build Tree
+    const rootRows: DreRow[] = []
+    const allRows = Array.from(accountMap.values())
+
+    allRows.sort((a, b) => a.code.localeCompare(b.code, undefined, { numeric: true }))
+
+    allRows.forEach(row => {
+        if (row.parentId) {
+            const parent = accountMap.get(row.parentId)
+            if (parent) {
+                parent.children.push(row)
+            }
+        } else {
+            rootRows.push(row)
+        }
+    })
+
+    // Calculate Function
+    for (let pass = 0; pass < 10; pass++) {
+        allRows.forEach(row => {
+            if (row.type === 'CALCULATED') {
+                if (row.formula) {
+                    for (let m = 0; m < 12; m++) {
+                        const expression = row.formula.replace(/@([\w\.]+)/g, (match, code) => {
+                            const targetRow = allRows.find(r => r.code === code)
+                            return targetRow ? targetRow.values[m].toString() : '0'
+                        })
+                        try {
+                            // eslint-disable-next-line
+                            const result = new Function(`return ${expression}`)()
+                            row.values[m] = typeof result === 'number' && !isNaN(result) ? result : 0
+                        } catch (e) {
+                            console.error(`Error calculating formula for ${row.code}: ${row.formula}`, e)
+                            row.values[m] = 0
+                        }
+                    }
+                } else if (row.baseCode && row.percentage !== null && row.percentage !== undefined) {
+                    const baseRow = allRows.find(r => r.code === row.baseCode)
+                    for (let m = 0; m < 12; m++) {
+                        const baseValue = baseRow ? baseRow.values[m] : 0
+                        row.values[m] = baseValue * (row.percentage / 100)
+                    }
+                } else {
+                    for (let m = 0; m < 12; m++) {
+                        row.values[m] = row.children.reduce((sum, child) => sum + child.values[m], 0)
+                    }
+                }
+            }
+        })
+    }
+
+    return rootRows
+}
+
+export default async function DrePage({
+    searchParams
+}: {
+    searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+}) {
+    const resolvedParams = await searchParams
+    const companyId = resolvedParams.companyId as string | undefined
+    const costCenterId = resolvedParams.costCenterId as string | undefined
+    const clientId = resolvedParams.clientId as string | undefined
+    const segmentId = resolvedParams.segmentId as string | undefined
+    const ccSegmentId = resolvedParams.ccSegmentId as string | undefined
+    const cityId = resolvedParams.cityId as string | undefined
+    const state = resolvedParams.state as string | undefined
+
+    const yearParam = resolvedParams.year as string | undefined
+    const currentYear = yearParam ? parseInt(yearParam) : 2025
+
+    const session = await getIronSession<SessionData>(await cookies(), sessionOptions)
+    if (!session.isLoggedIn) {
+        redirect('/login')
+    }
+
+    const tenantId = session.tenantId
+
+    // Get User Permissions
+    const user = await prisma.user.findUnique({
+        where: { id: session.userId },
+        include: { permissions: true }
+    })
+
+    // @ts-ignore - Prisma include inference
+    const permissions = user?.permissions || []
+
+    const allowedCompanyIds = permissions.filter(p => p.companyId).map(p => p.companyId!)
+    const allowedCostCenterIds = permissions.filter(p => p.costCenterId).map(p => p.costCenterId!)
+
+    const companyFilter: any = { tenantId }
+    if (allowedCompanyIds.length > 0) {
+        companyFilter.id = { in: allowedCompanyIds }
+    }
+
+    const costCenterFilter: any = { tenantId }
+    if (allowedCostCenterIds.length > 0) {
+        costCenterFilter.id = { in: allowedCostCenterIds }
+    }
+
+    // Version Logic
+    const budgetVersions = await prisma.budgetVersion.findMany({
+        where: { tenantId },
+        orderBy: { createdAt: 'asc' }
+    })
+    const versionParam = resolvedParams.versionId as string | undefined
+    const activeVersionId = (versionParam && budgetVersions.find(v => v.id === versionParam))
+        ? versionParam
+        : (budgetVersions[0]?.id || '')
+
+    const [data, companies, costCenters, clients, tenant, segments, ccSegments, cities] = await Promise.all([
+        getDreData(tenantId, currentYear, {
+            companyId, costCenterId, clientId, versionId: activeVersionId,
+            segmentId, ccSegmentId, cityId, state
+        }),
+        prisma.company.findMany({ where: companyFilter }),
+        prisma.costCenter.findMany({ where: costCenterFilter }),
+        prisma.client.findMany({ where: { tenantId } }),
+        prisma.tenant.findUnique({ where: { id: tenantId } }),
+        prisma.segment.findMany({ where: { tenantId } }),
+        prisma.costCenterSegment.findMany({ where: { tenantId } }),
+        prisma.city.findMany({ where: { tenantId } }),
+    ])
+
+    // Extract unique states
+    const states = Array.from(new Set(cities.filter(c => c.state).map(c => c.state!))).sort()
+
+    return (
+        <DreView
+            initialData={data}
+            tenantId={tenantId}
+            dreTitle={tenant?.dreTitle || "Demonstrativo de Resultados (DRE)"}
+            currentYear={currentYear}
+            versions={budgetVersions}
+            currentVersionId={activeVersionId}
+            minYear={tenant?.minYear || 2024}
+            maxYear={tenant?.maxYear || 2027}
+
+            // Filter Data
+            companies={companies}
+            costCenters={costCenters}
+            clients={clients}
+            segments={segments}
+            ccSegments={ccSegments}
+            cities={cities}
+            states={states}
+
+            filters={{ companyId, costCenterId, clientId }}
+            userRole={user?.role || 'USER'}
+            userPermissions={permissions}
+        />
+    )
+}
