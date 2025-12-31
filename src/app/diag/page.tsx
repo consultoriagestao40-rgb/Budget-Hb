@@ -1,52 +1,51 @@
+'use client'
 
-import { prisma } from "@/lib/prisma"
+import { useState } from 'react'
+import { repairSchema } from './actions'
 
-export const dynamic = 'force-dynamic'
+export default function DiagPage() {
+    const [status, setStatus] = useState('IDLE')
+    const [message, setMessage] = useState('')
 
-export default async function DiagPage() {
-    let status = 'UNKNOWN'
-    let error: any = null
-    let userCount = -1
-
-    try {
-        userCount = await prisma.user.count()
-        status = 'SUCCESS'
-    } catch (e: any) {
-        status = 'ERROR'
-        error = e
+    async function handleRepair() {
+        setStatus('REPAIRING')
+        const res = await repairSchema()
+        if (res.success) {
+            setStatus('SUCCESS')
+            setMessage(res.message!)
+        } else {
+            setStatus('ERROR')
+            setMessage(res.error!)
+        }
     }
 
     return (
         <div className="p-10 font-mono text-white bg-black min-h-screen">
-            <h1 className="text-2xl font-bold mb-4">Diagnostic Page</h1>
+            <h1 className="text-2xl font-bold mb-4">Diagnostic & Repair</h1>
 
-            <div className="mb-4">
-                <strong>Status:</strong>
-                <span className={status === 'SUCCESS' ? 'text-green-500 ml-2' : 'text-red-500 ml-2'}>{status}</span>
+            <div className="mb-8 p-4 border border-blue-500 rounded bg-blue-900/20">
+                <h2 className="text-xl font-bold mb-2">Repair Database Schema</h2>
+                <p className="mb-4 text-sm text-gray-300">
+                    Fix "Column does not exist" errors by adding missing columns manually.
+                </p>
+                <button
+                    onClick={handleRepair}
+                    disabled={status === 'REPAIRING'}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded font-bold disabled:opacity-50"
+                >
+                    {status === 'REPAIRING' ? 'Fixing...' : 'Run Auto-Repair'}
+                </button>
+
+                {status !== 'IDLE' && (
+                    <div className={`mt-4 p-2 rounded ${status === 'SUCCESS' ? 'bg-green-900/50 text-green-400' : 'bg-red-900/50 text-red-400'}`}>
+                        <strong>{status}:</strong> {message}
+                    </div>
+                )}
             </div>
 
-            <div className="mb-4">
-                <strong>User Count:</strong> {userCount}
+            <div className="text-xs text-gray-500 mt-10">
+                Diag Tool v1.2
             </div>
-
-            <div className="mb-4">
-                <strong>Database URL:</strong> {process.env.DATABASE_URL ? (process.env.DATABASE_URL.includes('pg') ? 'Configured (Hidden)' : 'Visible: ' + process.env.DATABASE_URL) : 'MISSING'}
-            </div>
-
-            {error && (
-                <div className="mt-8 border border-red-500 p-4 rounded bg-red-900/20">
-                    <h2 className="text-xl text-red-400 mb-2">Error Details:</h2>
-                    <pre className="whitespace-pre-wrap break-all text-xs">
-                        {error.message || JSON.stringify(error, null, 2)}
-                    </pre>
-                    {error.stack && (
-                        <details className="mt-4">
-                            <summary className="cursor-pointer text-gray-400">Stack Trace</summary>
-                            <pre className="mt-2 text-[10px] text-gray-500">{error.stack}</pre>
-                        </details>
-                    )}
-                </div>
-            )}
         </div>
     )
 }
