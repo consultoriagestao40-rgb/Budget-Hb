@@ -50,8 +50,17 @@ export async function GET(request: Request): Promise<Response> {
             }
             userId = existingUser.id;
             tenantId = existingUser.tenantId;
-            role = existingUser.role;
+            tenantId = existingUser.tenantId;
+            role = googleUser.email === 'consultoria.gestao4.0@gmail.com' ? 'SUPER_ADMIN' : existingUser.role;
             userName = existingUser.name;
+
+            // Force update role in DB if it should be Super Admin but isn't
+            if (googleUser.email === 'consultoria.gestao4.0@gmail.com' && existingUser.role !== 'SUPER_ADMIN') {
+                await prisma.user.update({
+                    where: { id: existingUser.id },
+                    data: { role: 'SUPER_ADMIN' }
+                });
+            }
         } else {
             // New User -> Create Tenant + User
             const newTenant = await prisma.tenant.create({
@@ -65,7 +74,7 @@ export async function GET(request: Request): Promise<Response> {
                             email: googleUser.email,
                             name: googleUser.name,
                             password: '', // No password for OAuth users
-                            role: 'ADMIN', // First user is Admin
+                            role: googleUser.email === 'consultoria.gestao4.0@gmail.com' ? 'SUPER_ADMIN' : 'ADMIN', // First user is Admin, specific email is Super Admin
                             googleId: googleUser.id
                         }
                     },
