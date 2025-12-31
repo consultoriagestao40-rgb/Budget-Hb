@@ -41,9 +41,20 @@ export function HorizontalFilterBar({
             if (key === 'companyId') {
                 params.delete('departmentId')
                 params.delete('costCenterId')
+                params.delete('clientId')
+                params.delete('segmentId')
+                params.delete('ccSegmentId')
             }
             if (key === 'departmentId') {
                 params.delete('costCenterId')
+                params.delete('segmentId')
+                // Indirect children of CostCenter need reset too as their context changes
+                params.delete('clientId')
+                params.delete('ccSegmentId')
+            }
+            if (key === 'costCenterId') {
+                params.delete('clientId')
+                params.delete('ccSegmentId')
             }
         } else {
             params.delete(key)
@@ -77,13 +88,34 @@ export function HorizontalFilterBar({
         }
         // If Company selected (but no specific Dept), show CostCenters of that Company's Departments
         if (currentFilters.companyId !== 'all') {
-            // Check if CC belongs to any of the filtered departments
             return filteredDepartments.some(d => d.id === cc.groupingId)
         }
         return true
     })
 
-    // 3. Filter Cities by State
+    // 3. Filter "Centro de Despesa" (Segment) by Department
+    // Requirements: Must match selected Department, or belongs to selected Company's departments
+    const filteredSegments = (segments as any[]).filter(seg => {
+        if (currentFilters.departmentId !== 'all') {
+            return seg.groupingId === currentFilters.departmentId
+        }
+        if (currentFilters.companyId !== 'all') {
+            return filteredDepartments.some(d => d.id === seg.groupingId)
+        }
+        return true
+    })
+
+    // 4. Filter "Seguimento" (ccSegment) based on AVAILABLE CostCenters
+    // Only show segments that are used by the currently filtered cost centers
+    const activeCCSegmentIds = new Set(filteredCostCenters.map((cc: any) => cc.segmentId).filter(Boolean))
+    const filteredCCSegments = ccSegments.filter(ccs => activeCCSegmentIds.has(ccs.id))
+
+    // 5. Filter "Cliente" based on AVAILABLE CostCenters
+    // Only show clients that are used by the currently filtered cost centers
+    const activeClientIds = new Set(filteredCostCenters.map((cc: any) => cc.clientId).filter(Boolean))
+    const filteredClients = clients.filter(c => activeClientIds.has(c.id))
+
+    // 6. Filter Cities by State
     const filteredCities = currentFilters.state !== 'all'
         ? cities.filter(c => c.state === currentFilters.state)
         : cities
@@ -132,19 +164,22 @@ export function HorizontalFilterBar({
                     label="Cliente"
                     value={currentFilters.clientId}
                     onChange={v => handleFilterChange('clientId', v)}
-                    options={clients}
+                    options={filteredClients}
+                    disabled={filteredClients.length === 0}
                 />
                 <FilterSelect
                     label="Seguimento"
                     value={currentFilters.ccSegmentId}
                     onChange={v => handleFilterChange('ccSegmentId', v)}
-                    options={ccSegments}
+                    options={filteredCCSegments}
+                    disabled={filteredCCSegments.length === 0}
                 />
                 <FilterSelect
                     label="Centro de Despesa"
                     value={currentFilters.segmentId}
                     onChange={v => handleFilterChange('segmentId', v)}
-                    options={segments}
+                    options={filteredSegments}
+                    disabled={filteredSegments.length === 0}
                 />
                 <div className="flex flex-col gap-1 min-w-[100px] w-[100px]">
                     <label className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">UF</label>
