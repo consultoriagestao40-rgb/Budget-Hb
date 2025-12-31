@@ -35,7 +35,11 @@ export default async function DashboardLayout({
     }
 
     return (
-        <DashboardClientLayout tenantName={tenantName}>
+        <DashboardClientLayout
+            tenantName={tenantName}
+            userRole={session.role}
+            userEmail={session.email}
+        >
             {children}
         </DashboardClientLayout>
     )

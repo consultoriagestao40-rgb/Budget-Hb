@@ -6,9 +6,19 @@ import { ThemeToggle } from './ThemeToggle'
 import { useSidebarStore } from '@/store/sidebarStore'
 import { logout } from '@/app/actions/auth'
 
-export function Sidebar({ tenantName }: { tenantName: string }) {
+export function Sidebar({
+    tenantName,
+    userRole,
+    userEmail
+}: {
+    tenantName: string,
+    userRole?: string,
+    userEmail?: string
+}) {
     const pathname = usePathname()
     const { isCollapsed, toggle } = useSidebarStore()
+
+    const isSuperAdmin = userRole === 'SUPER_ADMIN' || userEmail === 'consultoria.gestao4.0@gmail.com'
 
     const menuItems = [
         { name: 'Dashboard', path: '/dashboard', icon: <HomeIcon /> },
@@ -81,6 +91,25 @@ export function Sidebar({ tenantName }: { tenantName: string }) {
                         </Link>
                     )
                 })}
+
+                {/* Admin Link */}
+                {isSuperAdmin && (
+                    <>
+                        <div className="my-2 border-t border-[var(--border-subtle)] mx-2"></div>
+                        <Link
+                            href="/admin"
+                            className={`
+                                flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200
+                                text-red-500 hover:bg-red-500/10
+                                ${isCollapsed ? 'justify-center px-0 py-3' : ''}
+                            `}
+                            title={isCollapsed ? "Admin Master" : undefined}
+                        >
+                            <span className="shrink-0"><ShieldIcon /></span>
+                            {!isCollapsed && <span>Admin Master</span>}
+                        </Link>
+                    </>
+                )}
             </nav>
 
             {/* Footer */}
@@ -97,6 +126,14 @@ export function Sidebar({ tenantName }: { tenantName: string }) {
                 </button>
             </div>
         </aside>
+    )
+}
+
+function ShieldIcon() {
+    return (
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+        </svg>
     )
 }
 
