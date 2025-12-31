@@ -23,6 +23,7 @@ interface DreViewProps {
 
     // Filter Data
     companies: any[]
+    departments: any[] // NEW
     costCenters: any[]
     clients: any[]
     segments: any[]
@@ -32,6 +33,7 @@ interface DreViewProps {
 
     filters: {
         companyId?: string
+        departmentId?: string // NEW
         costCenterId?: string
         clientId?: string
     }
@@ -49,6 +51,7 @@ export function DreView({
     minYear,
     maxYear,
     companies,
+    departments, // NEW
     costCenters,
     clients,
     segments,
@@ -142,6 +145,7 @@ export function DreView({
             {/* Horizontal Filter Bar */}
             <HorizontalFilterBar
                 companies={companies}
+                departments={departments} // NEW
                 costCenters={costCenters}
                 clients={clients}
                 segments={segments}

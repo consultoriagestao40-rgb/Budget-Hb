@@ -9,7 +9,8 @@ interface FilterOption {
 
 interface HorizontalFilterBarProps {
     companies: FilterOption[]
-    costCenters: FilterOption[]
+    departments: any[] // Using any for now to avoid extensive type mapping updates
+    costCenters: any[]
     clients: FilterOption[]
     segments: FilterOption[] // Centro de Despesa
     ccSegments: FilterOption[] // Seguimento
@@ -19,6 +20,7 @@ interface HorizontalFilterBarProps {
 
 export function HorizontalFilterBar({
     companies,
+    departments,
     costCenters,
     clients,
     segments,
@@ -34,6 +36,15 @@ export function HorizontalFilterBar({
         const params = new URLSearchParams(searchParams.toString())
         if (value && value !== 'all') {
             params.set(key, value)
+
+            // Cascading Resets
+            if (key === 'companyId') {
+                params.delete('departmentId')
+                params.delete('costCenterId')
+            }
+            if (key === 'departmentId') {
+                params.delete('costCenterId')
+            }
         } else {
             params.delete(key)
         }
@@ -42,6 +53,7 @@ export function HorizontalFilterBar({
 
     const currentFilters = {
         companyId: searchParams.get('companyId') || 'all',
+        departmentId: searchParams.get('departmentId') || 'all',
         costCenterId: searchParams.get('costCenterId') || 'all',
         clientId: searchParams.get('clientId') || 'all',
         segmentId: searchParams.get('segmentId') || 'all', // Centro de Despesa
@@ -49,6 +61,32 @@ export function HorizontalFilterBar({
         cityId: searchParams.get('cityId') || 'all',
         state: searchParams.get('state') || 'all',
     }
+
+    // --- Cascading Logic ---
+
+    // 1. Filter Departments by Company
+    const filteredDepartments = currentFilters.companyId !== 'all'
+        ? departments.filter(d => d.companyId === currentFilters.companyId)
+        : departments
+
+    // 2. Filter CostCenters by Department (and indirectly by Company)
+    const filteredCostCenters = costCenters.filter(cc => {
+        // If specific Department selected, show only its CostCenters
+        if (currentFilters.departmentId !== 'all') {
+            return cc.groupingId === currentFilters.departmentId
+        }
+        // If Company selected (but no specific Dept), show CostCenters of that Company's Departments
+        if (currentFilters.companyId !== 'all') {
+            // Check if CC belongs to any of the filtered departments
+            return filteredDepartments.some(d => d.id === cc.groupingId)
+        }
+        return true
+    })
+
+    // 3. Filter Cities by State
+    const filteredCities = currentFilters.state !== 'all'
+        ? cities.filter(c => c.state === currentFilters.state)
+        : cities
 
     const FilterSelect = ({ label, value, onChange, options, disabled = false }: { label: string, value: string, onChange: (v: string) => void, options: FilterOption[], disabled?: boolean }) => (
         <div className="flex flex-col gap-1 min-w-[150px] flex-1">
@@ -67,11 +105,6 @@ export function HorizontalFilterBar({
         </div>
     )
 
-    // Filter cities by state if state selected
-    const filteredCities = currentFilters.state !== 'all'
-        ? cities.filter(c => c.state === currentFilters.state)
-        : cities
-
     return (
         <div className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-xl p-4 shadow-sm mb-6">
             <div className="flex flex-wrap gap-4">
@@ -82,10 +115,18 @@ export function HorizontalFilterBar({
                     options={companies}
                 />
                 <FilterSelect
+                    label="Departamento"
+                    value={currentFilters.departmentId}
+                    onChange={v => handleFilterChange('departmentId', v)}
+                    options={filteredDepartments}
+                    disabled={filteredDepartments.length === 0}
+                />
+                <FilterSelect
                     label="Centro de Custo"
                     value={currentFilters.costCenterId}
                     onChange={v => handleFilterChange('costCenterId', v)}
-                    options={costCenters}
+                    options={filteredCostCenters}
+                    disabled={filteredCostCenters.length === 0}
                 />
                 <FilterSelect
                     label="Cliente"

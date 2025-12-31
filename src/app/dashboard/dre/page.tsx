@@ -16,6 +16,7 @@ async function getDreData(
         versionId: string
         segmentId?: string // Centro de Despesa
         ccSegmentId?: string // Seguimento
+        departmentId?: string
         cityId?: string
         state?: string
     }
@@ -37,6 +38,11 @@ async function getDreData(
     if (filters.costCenterId && filters.costCenterId !== 'all') whereClause.costCenterId = filters.costCenterId
     if (filters.clientId && filters.clientId !== 'all') whereClause.clientId = filters.clientId
     if (filters.segmentId && filters.segmentId !== 'all') whereClause.segmentId = filters.segmentId
+
+    // Department Filter (Grouping)
+    if (filters.departmentId && filters.departmentId !== 'all') {
+        whereClause.costCenter = { ...whereClause.costCenter, groupingId: filters.departmentId }
+    }
 
     // Complex relationships filters
     if (filters.ccSegmentId && filters.ccSegmentId !== 'all') {
@@ -155,6 +161,7 @@ export default async function DrePage({
     const clientId = resolvedParams.clientId as string | undefined
     const segmentId = resolvedParams.segmentId as string | undefined
     const ccSegmentId = resolvedParams.ccSegmentId as string | undefined
+    const departmentId = resolvedParams.departmentId as string | undefined
     const cityId = resolvedParams.cityId as string | undefined
     const state = resolvedParams.state as string | undefined
 
@@ -200,10 +207,10 @@ export default async function DrePage({
         ? versionParam
         : (budgetVersions[0]?.id || '')
 
-    const [data, companies, costCenters, clients, tenant, segments, ccSegments, cities] = await Promise.all([
+    const [data, companies, costCenters, clients, tenant, segments, ccSegments, cities, departments] = await Promise.all([
         getDreData(tenantId, currentYear, {
             companyId, costCenterId, clientId, versionId: activeVersionId,
-            segmentId, ccSegmentId, cityId, state
+            segmentId, ccSegmentId, departmentId, cityId, state
         }),
         prisma.company.findMany({ where: companyFilter }),
         prisma.costCenter.findMany({ where: costCenterFilter }),
@@ -212,6 +219,7 @@ export default async function DrePage({
         prisma.segment.findMany({ where: { tenantId } }),
         prisma.costCenterSegment.findMany({ where: { tenantId } }),
         prisma.city.findMany({ where: { tenantId } }),
+        prisma.grouping.findMany({ where: { tenantId } }), // Departments
     ])
 
     // Extract unique states
@@ -230,6 +238,7 @@ export default async function DrePage({
 
             // Filter Data
             companies={companies}
+            departments={departments}
             costCenters={costCenters}
             clients={clients}
             segments={segments}
@@ -237,7 +246,7 @@ export default async function DrePage({
             cities={cities}
             states={states}
 
-            filters={{ companyId, costCenterId, clientId }}
+            filters={{ companyId, departmentId, costCenterId, clientId }}
             userRole={user?.role || 'USER'}
             userPermissions={permissions}
         />
