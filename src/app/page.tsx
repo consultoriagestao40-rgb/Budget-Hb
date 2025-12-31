@@ -5,7 +5,7 @@ export default function Home() {
     return (
         <div className="flex flex-col min-h-screen bg-[#0F172A] text-white">
             {/* Header / Navbar */}
-            <header className="absolute top-0 w-full z-50 border-b border-white/10 backdrop-blur-sm"> // Fixed absolute positioning context
+            <header className="absolute top-0 w-full z-50 border-b border-white/10 backdrop-blur-sm">
                 <div className="container mx-auto px-6 h-16 flex items-center justify-between">
                     {/* Logo/Brand */}
                     <div className="flex items-center gap-2">
