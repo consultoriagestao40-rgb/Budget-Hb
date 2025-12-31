@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { Company, CostCenter, Client, User, City, CostCenterGroup, CostCenterSegment, Grouping } from '@/lib/prisma'
+import { useState, useEffect } from 'react'
+import { Company, CostCenter, Client, User, City, CostCenterGroup, CostCenterSegment, Grouping, Tenant } from '@/lib/prisma'
 import { Modal } from '@/app/components/Modal'
 import {
     createCompany, createCostCenter, createClient, deleteCompany, deleteCostCenter, deleteClient,
@@ -9,6 +9,8 @@ import {
     createCostCenterSegment, deleteCostCenterSegment, createGrouping, deleteGrouping
 } from '@/app/actions/settings'
 import { createUser, deleteUser, getUserPermissions, updateUserPermissions, updateUser } from '@/app/actions/users'
+import { updateTenantProfile } from '@/app/actions/tenant'
+import { useRouter } from 'next/navigation'
 
 interface SettingsClientProps {
     initialCompanies: Company[]
@@ -19,9 +21,10 @@ interface SettingsClientProps {
     initialGroups: CostCenterGroup[]
     initialSegments: CostCenterSegment[]
     initialGroupings: Grouping[]
+    initialTenant: Tenant | null
 }
 
-type TabType = 'companies' | 'costCenters' | 'clients' | 'groupings' | 'cities' | 'groups' | 'segments' | 'users'
+type TabType = 'companies' | 'costCenters' | 'clients' | 'groupings' | 'cities' | 'groups' | 'segments' | 'users' | 'account'
 
 interface Permission {
     type: 'COMPANY' | 'COST_CENTER'
@@ -34,9 +37,10 @@ interface Permission {
 
 export function SettingsClient({
     initialCompanies, initialCostCenters, initialClients, initialUsers,
-    initialCities, initialGroups, initialSegments, initialGroupings
+    initialCities, initialGroups, initialSegments, initialGroupings, initialTenant
 }: SettingsClientProps) {
     const [activeTab, setActiveTab] = useState<TabType>('companies')
+    const router = useRouter()
 
     // Modal State
     const [isModalOpen, setIsModalOpen] = useState(false)
@@ -49,6 +53,18 @@ export function SettingsClient({
     const [permissions, setPermissions] = useState<Permission[]>([])
     const [isLoadingPerms, setIsLoadingPerms] = useState(false)
     const [isSavingPerms, setIsSavingPerms] = useState(false)
+
+    // Tenant Profile State
+    const [tenantProfile, setTenantProfile] = useState({
+        ownerName: initialTenant?.ownerName || '',
+        website: initialTenant?.website || '',
+        address: initialTenant?.address || '',
+        cnpj: initialTenant?.cnpj || '',
+        phone: initialTenant?.phone || '',
+        logoUrl: initialTenant?.logoUrl || '',
+        description: initialTenant?.description || ''
+    })
+    const [isSavingProfile, setIsSavingProfile] = useState(false)
 
     const handleOpenModal = () => {
         setFormData({ name: '', code: '', email: '', role: 'USER', password: '', state: '' })
@@ -190,6 +206,19 @@ export function SettingsClient({
         }
     }
 
+    const handleSaveProfile = async () => {
+        setIsSavingProfile(true)
+        try {
+            await updateTenantProfile(tenantProfile)
+            alert('Perfil atualizado com sucesso!')
+            router.refresh()
+        } catch (e: any) {
+            alert('Erro ao atualizar perfil: ' + e.message)
+        } finally {
+            setIsSavingProfile(false)
+        }
+    }
+
     const getTabLabel = (tab: TabType) => {
         switch (tab) {
             case 'companies': return 'Empresas'
@@ -200,12 +229,13 @@ export function SettingsClient({
             case 'groups': return 'Agrupamentos'
             case 'segments': return 'Seguimentos'
             case 'users': return 'Usuários'
+            case 'account': return 'Dados da Conta'
         }
     }
 
     return (
         <div className="space-y-6">
-            <h1 className="text-2xl font-bold">Configurações do Sistema</h1>
+            <h1 className="text-2xl font-bold text-[var(--text-primary)]">Configurações do Sistema</h1>
 
             {/* Tabs */}
             <div className="flex border-b border-[var(--border-subtle)] overflow-x-auto custom-scrollbar">
@@ -217,61 +247,185 @@ export function SettingsClient({
                 <TabButton active={activeTab === 'groups'} onClick={() => setActiveTab('groups')} label="Agrupadores" />
                 <TabButton active={activeTab === 'segments'} onClick={() => setActiveTab('segments')} label="Seguimentos" />
                 <TabButton active={activeTab === 'users'} onClick={() => setActiveTab('users')} label="Usuários" />
+                <TabButton active={activeTab === 'account'} onClick={() => setActiveTab('account')} label="Dados da Conta" />
             </div>
 
-            {/* Header + Add Button */}
-            <div className="flex justify-between items-center">
-                <h2 className="text-lg font-semibold text-[var(--text-secondary)]">
-                    Gerenciar {getTabLabel(activeTab)}
-                </h2>
-                <button onClick={handleOpenModal} className="btn btn-primary">
-                    + Adicionar {activeTab === 'users' ? 'Usuário' : 'Novo'}
-                </button>
-            </div>
+            {/* Header + Add Button (Hidden for Account Tab) */}
+            {activeTab !== 'account' && (
+                <div className="flex justify-between items-center">
+                    <h2 className="text-lg font-semibold text-[var(--text-secondary)]">
+                        Gerenciar {getTabLabel(activeTab)}
+                    </h2>
+                    <button onClick={handleOpenModal} className="btn btn-primary">
+                        + Adicionar {activeTab === 'users' ? 'Usuário' : 'Novo'}
+                    </button>
+                </div>
+            )}
 
-            {/* Lists */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {activeTab === 'companies' && initialCompanies.map(item => (
-                    <ItemCard key={item.id} name={item.name} code={item.code} onDelete={() => handleDelete(item.id, item.name)} />
-                ))}
-                {activeTab === 'costCenters' && initialCostCenters.map(item => (
-                    <ItemCard key={item.id} name={item.name} code={item.code} onDelete={() => handleDelete(item.id, item.name)} />
-                ))}
-                {activeTab === 'groupings' && initialGroupings.map(item => (
-                    <ItemCard key={item.id} name={item.name} onDelete={() => handleDelete(item.id, item.name)} />
-                ))}
-                {activeTab === 'clients' && initialClients.map(item => (
-                    <ItemCard key={item.id} name={item.name} onDelete={() => handleDelete(item.id, item.name)} />
-                ))}
-                {activeTab === 'cities' && initialCities.map(item => (
-                    <ItemCard key={item.id} name={item.name} onDelete={() => handleDelete(item.id, item.name)} />
-                ))}
-                {activeTab === 'groups' && initialGroups.map(item => (
-                    <ItemCard key={item.id} name={item.name} onDelete={() => handleDelete(item.id, item.name)} />
-                ))}
-                {activeTab === 'segments' && initialSegments.map(item => (
-                    <ItemCard key={item.id} name={item.name} onDelete={() => handleDelete(item.id, item.name)} />
-                ))}
-                {activeTab === 'users' && initialUsers.map(item => (
-                    <UserCard
-                        key={item.id}
-                        user={item}
-                        onDelete={() => handleDelete(item.id, item.name)}
-                        onManagePermissions={() => handleManagePermissions(item)}
-                        onEdit={() => handleEditUser(item)}
-                    />
-                ))}
+            {/* Account Tab Content */}
+            {activeTab === 'account' ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-in fade-in duration-300">
+                    <div className="space-y-4">
+                        <div className="bg-[var(--bg-surface)] p-6 rounded-lg border border-[var(--border-subtle)]">
+                            <h3 className="text-lg font-bold text-[var(--text-primary)] mb-4 border-b border-[var(--border-subtle)] pb-2">Informações da Empresa</h3>
 
-                {/* Empty States (Simplified) */}
-                {((activeTab === 'companies' && initialCompanies.length === 0) ||
-                    (activeTab === 'costCenters' && initialCostCenters.length === 0) ||
-                    (activeTab === 'clients' && initialClients.length === 0) ||
-                    (activeTab === 'groupings' && initialGroupings.length === 0) ||
-                    (activeTab === 'cities' && initialCities.length === 0) ||
-                    (activeTab === 'groups' && initialGroups.length === 0) ||
-                    (activeTab === 'segments' && initialSegments.length === 0) ||
-                    (activeTab === 'users' && initialUsers.length === 0)) && <EmptyState />}
-            </div>
+                            <div className="grid gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium mb-1 text-[var(--text-secondary)]">Nome do Responsável</label>
+                                    <input
+                                        type="text"
+                                        value={tenantProfile.ownerName}
+                                        onChange={e => setTenantProfile({ ...tenantProfile, ownerName: e.target.value })}
+                                        className="input-outline w-full"
+                                        placeholder="Nome do contato principal"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium mb-1 text-[var(--text-secondary)]">CNPJ</label>
+                                    <input
+                                        type="text"
+                                        value={tenantProfile.cnpj}
+                                        onChange={e => setTenantProfile({ ...tenantProfile, cnpj: e.target.value })}
+                                        className="input-outline w-full"
+                                        placeholder="00.000.000/0000-00"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium mb-1 text-[var(--text-secondary)]">Telefone / WhatsApp</label>
+                                    <input
+                                        type="text"
+                                        value={tenantProfile.phone}
+                                        onChange={e => setTenantProfile({ ...tenantProfile, phone: e.target.value })}
+                                        className="input-outline w-full"
+                                        placeholder="(00) 00000-0000"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium mb-1 text-[var(--text-secondary)]">Endereço Completo</label>
+                                    <textarea
+                                        value={tenantProfile.address}
+                                        onChange={e => setTenantProfile({ ...tenantProfile, address: e.target.value })}
+                                        className="input-outline w-full h-24 resize-none"
+                                        placeholder="Rua, Número, Bairro, Cidade - UF, CEP"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="space-y-4">
+                        <div className="bg-[var(--bg-surface)] p-6 rounded-lg border border-[var(--border-subtle)]">
+                            <h3 className="text-lg font-bold text-[var(--text-primary)] mb-4 border-b border-[var(--border-subtle)] pb-2">Identidade Visual & Web</h3>
+
+                            <div className="grid gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium mb-1 text-[var(--text-secondary)]">Website</label>
+                                    <input
+                                        type="text"
+                                        value={tenantProfile.website}
+                                        onChange={e => setTenantProfile({ ...tenantProfile, website: e.target.value })}
+                                        className="input-outline w-full"
+                                        placeholder="https://www.suaempresa.com.br"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium mb-1 text-[var(--text-secondary)]">URL do Logotipo</label>
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="text"
+                                            value={tenantProfile.logoUrl}
+                                            onChange={e => setTenantProfile({ ...tenantProfile, logoUrl: e.target.value })}
+                                            className="input-outline w-full"
+                                            placeholder="https://exemplo.com/logo.png"
+                                        />
+                                    </div>
+                                    <p className="text-xs text-[var(--text-muted)] mt-1">Cole o link direto da imagem da sua logo.</p>
+                                </div>
+
+                                {tenantProfile.logoUrl && (
+                                    <div className="mt-4 p-4 border border-[var(--border-subtle)] rounded bg-[var(--bg-main)] flex flex-col items-center justify-center">
+                                        <span className="text-xs text-[var(--text-muted)] mb-2">Pré-visualização</span>
+                                        <img
+                                            src={tenantProfile.logoUrl}
+                                            alt="Logo Preview"
+                                            className="max-h-24 max-w-full object-contain"
+                                            onError={(e) => (e.currentTarget.src = 'https://via.placeholder.com/150?text=Erro+na+Imagem')}
+                                        />
+                                    </div>
+                                )}
+
+                                <div className="mt-4">
+                                    <label className="block text-sm font-medium mb-1 text-[var(--text-secondary)]">Descrição Curta</label>
+                                    <textarea
+                                        value={tenantProfile.description}
+                                        onChange={e => setTenantProfile({ ...tenantProfile, description: e.target.value })}
+                                        className="input-outline w-full h-24 resize-none"
+                                        placeholder="Breve descrição sobre a empresa..."
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end pt-4">
+                            <button
+                                onClick={handleSaveProfile}
+                                disabled={isSavingProfile}
+                                className="btn btn-primary w-full md:w-auto px-8"
+                            >
+                                {isSavingProfile ? 'Salvando...' : 'Salvar Alterações'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            ) : (
+                /* Lists for other tabs */
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {activeTab === 'companies' && initialCompanies.map(item => (
+                        <ItemCard key={item.id} name={item.name} code={item.code} onDelete={() => handleDelete(item.id, item.name)} />
+                    ))}
+                    {activeTab === 'costCenters' && initialCostCenters.map(item => (
+                        <ItemCard key={item.id} name={item.name} code={item.code} onDelete={() => handleDelete(item.id, item.name)} />
+                    ))}
+                    {activeTab === 'groupings' && initialGroupings.map(item => (
+                        <ItemCard key={item.id} name={item.name} onDelete={() => handleDelete(item.id, item.name)} />
+                    ))}
+                    {activeTab === 'clients' && initialClients.map(item => (
+                        <ItemCard key={item.id} name={item.name} onDelete={() => handleDelete(item.id, item.name)} />
+                    ))}
+                    {activeTab === 'cities' && initialCities.map(item => (
+                        <ItemCard key={item.id} name={item.name} onDelete={() => handleDelete(item.id, item.name)} />
+                    ))}
+                    {activeTab === 'groups' && initialGroups.map(item => (
+                        <ItemCard key={item.id} name={item.name} onDelete={() => handleDelete(item.id, item.name)} />
+                    ))}
+                    {activeTab === 'segments' && initialSegments.map(item => (
+                        <ItemCard key={item.id} name={item.name} onDelete={() => handleDelete(item.id, item.name)} />
+                    ))}
+                    {activeTab === 'users' && initialUsers.map(item => (
+                        <UserCard
+                            key={item.id}
+                            user={item}
+                            onDelete={() => handleDelete(item.id, item.name)}
+                            onManagePermissions={() => handleManagePermissions(item)}
+                            onEdit={() => handleEditUser(item)}
+                        />
+                    ))}
+
+                    {/* Empty States (Simplified) */}
+                    {((activeTab === 'companies' && initialCompanies.length === 0) ||
+                        (activeTab === 'costCenters' && initialCostCenters.length === 0) ||
+                        (activeTab === 'clients' && initialClients.length === 0) ||
+                        (activeTab === 'groupings' && initialGroupings.length === 0) ||
+                        (activeTab === 'cities' && initialCities.length === 0) ||
+                        (activeTab === 'groups' && initialGroups.length === 0) ||
+                        (activeTab === 'segments' && initialSegments.length === 0) ||
+                        (activeTab === 'users' && initialUsers.length === 0)) && <EmptyState />}
+                </div>
+            )}
 
             {/* Creation Modal */}
             <Modal

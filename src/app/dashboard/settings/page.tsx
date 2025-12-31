@@ -21,7 +21,7 @@ export default async function SettingsPage() {
         )
     }
 
-    const [companies, costCenters, clients, users, cities, groups, segments, groupings] = await Promise.all([
+    const [companies, costCenters, clients, users, cities, groups, segments, groupings, tenant] = await Promise.all([
         prisma.company.findMany({ where: { tenantId: session.tenantId }, orderBy: { name: 'asc' } }),
         prisma.costCenter.findMany({ where: { tenantId: session.tenantId }, orderBy: { name: 'asc' } }),
         prisma.client.findMany({ where: { tenantId: session.tenantId }, orderBy: { name: 'asc' } }),
@@ -32,7 +32,8 @@ export default async function SettingsPage() {
         prisma.city.findMany({ where: { tenantId: session.tenantId }, orderBy: { name: 'asc' } }),
         prisma.costCenterGroup.findMany({ where: { tenantId: session.tenantId }, orderBy: { name: 'asc' } }),
         prisma.costCenterSegment.findMany({ where: { tenantId: session.tenantId }, orderBy: { name: 'asc' } }),
-        prisma.grouping.findMany({ where: { tenantId: session.tenantId }, orderBy: { name: 'asc' } })
+        prisma.grouping.findMany({ where: { tenantId: session.tenantId }, orderBy: { name: 'asc' } }),
+        prisma.tenant.findUnique({ where: { id: session.tenantId } })
     ])
 
     return (
@@ -46,6 +47,7 @@ export default async function SettingsPage() {
                 initialGroups={groups}
                 initialSegments={segments}
                 initialGroupings={groupings}
+                initialTenant={tenant}
             />
         </div>
     )

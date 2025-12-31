@@ -23,6 +23,14 @@ model Tenant {
   plan      String   @default("FREE")     // FREE, PRO, ENTERPRISE
   ownerName String?
   ownerEmail String?
+
+  // Customization Profile
+  website     String?
+  address     String?
+  cnpj        String?
+  phone       String?
+  logoUrl     String?
+  description String?
   
   // Year Configuration
   minYear   Int      @default(2024)
