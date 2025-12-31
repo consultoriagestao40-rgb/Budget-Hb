@@ -1,11 +1,16 @@
 'use client'
 
-import { TenantWithStats, updateTenantStatus, updateTenantPlan, deleteTenant } from '@/app/actions/admin' // ADDED deleteTenant
+import { TenantWithStats, updateTenantStatus, updateTenantPlan, deleteTenant } from '@/app/actions/admin'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 export function AdminTenantsTable({ tenants }: { tenants: TenantWithStats[] }) {
     const [loadingId, setLoadingId] = useState<string | null>(null)
+    // State for Delete Modal
+    const [deleteModalOpen, setDeleteModalOpen] = useState(false)
+    const [tenantToDelete, setTenantToDelete] = useState<{ id: string, name: string } | null>(null)
+    const [confirmationName, setConfirmationName] = useState('')
+
     const router = useRouter()
 
     const handleStatusChange = async (id: string, newStatus: string) => {
@@ -32,18 +37,30 @@ export function AdminTenantsTable({ tenants }: { tenants: TenantWithStats[] }) {
         }
     }
 
-    const handleDelete = async (id: string, name: string) => {
-        if (!confirm(`TEM CERTEZA QUE DESEJA EXCLUIR A EMPRESA "${name}"?\n\nIsso apagará TODOS os dados (Usuários, Orçamentos, etc) permanentemente.\nEssa ação não pode ser desfeita.`)) return
+    const openDeleteModal = (id: string, name: string) => {
+        setTenantToDelete({ id, name })
+        setConfirmationName('')
+        setDeleteModalOpen(true)
+    }
 
-        // Double confirm
-        const confirmName = prompt(`Para confirmar, digite o nome da empresa: ${name}`)
-        if (confirmName !== name) {
-            return alert('Nome incorreto. Operação cancelada.')
+    const closeDeleteModal = () => {
+        setDeleteModalOpen(false)
+        setTenantToDelete(null)
+        setConfirmationName('')
+    }
+
+    const handleConfirmDelete = async () => {
+        if (!tenantToDelete) return
+
+        if (confirmationName !== tenantToDelete.name) {
+            return alert('Nome incorreto. Por favor digite o nome exato da empresa.')
         }
 
-        setLoadingId(id)
+        setLoadingId(tenantToDelete.id)
+        closeDeleteModal()
+
         try {
-            await deleteTenant(id)
+            await deleteTenant(tenantToDelete.id)
         } catch (e: any) {
             alert('Erro ao excluir: ' + e.message)
         } finally {
@@ -60,7 +77,7 @@ export function AdminTenantsTable({ tenants }: { tenants: TenantWithStats[] }) {
                         <th className="p-4 font-medium">Contato</th>
                         <th className="p-4 font-medium">Plano</th>
                         <th className="p-4 font-medium">Status</th>
-                        <th className="p-4 font-medium text-right">Ações</th> {/* Renamed from Stats */}
+                        <th className="p-4 font-medium text-right">Ações</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--border-subtle)]">
@@ -108,7 +125,7 @@ export function AdminTenantsTable({ tenants }: { tenants: TenantWithStats[] }) {
                                 </div>
 
                                 <button
-                                    onClick={() => handleDelete(tenant.id, tenant.name)}
+                                    onClick={() => openDeleteModal(tenant.id, tenant.name)}
                                     disabled={loadingId === tenant.id}
                                     className="p-2 text-red-500 hover:bg-red-500/10 rounded transition-colors"
                                     title="Excluir Empresa Permanentemente"
@@ -130,6 +147,49 @@ export function AdminTenantsTable({ tenants }: { tenants: TenantWithStats[] }) {
             {tenants.length === 0 && (
                 <div className="p-8 text-center text-[var(--text-muted)]">
                     Nenhuma empresa encontrada.
+                </div>
+            )}
+
+            {deleteModalOpen && tenantToDelete && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-[var(--bg-surface)] rounded-xl shadow-2xl w-full max-w-md border border-[var(--border-subtle)] overflow-hidden scale-100 animate-in zoom-in-95 duration-200">
+                        <div className="p-6">
+                            <h3 className="text-lg font-bold text-[var(--text-primary)] mb-2">Excluir Empresa?</h3>
+                            <p className="text-sm text-[var(--text-secondary)] mb-4">
+                                Esta ação é irreversível. Todos os dados da empresa <strong className="text-[var(--text-primary)]">{tenantToDelete.name}</strong> serão apagados permanentemente.
+                            </p>
+
+                            <div className="mb-4">
+                                <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
+                                    Digite <span className="text-[var(--text-primary)] select-all">{tenantToDelete.name}</span> para confirmar:
+                                </label>
+                                <input
+                                    type="text"
+                                    value={confirmationName}
+                                    onChange={(e) => setConfirmationName(e.target.value)}
+                                    className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-subtle)] rounded-lg text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--danger)]/50 focus:border-[var(--danger)]"
+                                    placeholder="Digite o nome da empresa aqui"
+                                    autoFocus
+                                />
+                            </div>
+
+                            <div className="flex justify-end gap-3 mt-6">
+                                <button
+                                    onClick={closeDeleteModal}
+                                    className="px-4 py-2 text-sm font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-main)] rounded-lg transition-colors"
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    onClick={handleConfirmDelete}
+                                    disabled={confirmationName !== tenantToDelete.name}
+                                    className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                                >
+                                    Excluir Permanentemente
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>
