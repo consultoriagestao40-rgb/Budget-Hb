@@ -207,15 +207,23 @@ export default async function DrePage({
         ? versionParam
         : (budgetVersions[0]?.id || '')
 
-    const [data, companies, costCenters, clients, tenant, segments, ccSegments, cities, departments] = await Promise.all([
-        getDreData(tenantId, currentYear, {
+    // 1. Fetch Tenant Config FIRST to ensure safe year
+    const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } })
+    const tMin = tenant?.minYear || 2024
+    const tMax = tenant?.maxYear || 2027
+
+    // Clamp Year - Ensure we never fetch/render data for an invalid year
+    const effectiveYear = Math.min(Math.max(currentYear, tMin), tMax)
+
+    // 2. Fetch Data using SAFE effectiveYear
+    const [data, companies, costCenters, clients, segments, ccSegments, cities, departments] = await Promise.all([
+        getDreData(tenantId, effectiveYear, {
             companyId, costCenterId, clientId, versionId: activeVersionId,
             segmentId, ccSegmentId, departmentId, cityId, state
         }),
         prisma.company.findMany({ where: companyFilter }),
         prisma.costCenter.findMany({ where: costCenterFilter }),
         prisma.client.findMany({ where: { tenantId } }),
-        prisma.tenant.findUnique({ where: { id: tenantId } }),
         prisma.segment.findMany({ where: { tenantId } }),
         prisma.costCenterSegment.findMany({ where: { tenantId } }),
         prisma.city.findMany({ where: { tenantId } }),
@@ -224,15 +232,6 @@ export default async function DrePage({
 
     // Extract unique states
     const states = Array.from(new Set(cities.filter(c => c.state).map(c => c.state!))).sort()
-
-    // Safety: Clamp currentYear to tenant range to prevent crash
-    // We do NOT redirect here because it breaks Server Actions server-side re-render.
-    // The client handles redirection to a safe year.
-    const tMin = tenant?.minYear || 2024
-    const tMax = tenant?.maxYear || 2027
-
-    // Use effectiveYear for data fetching and rendering
-    const effectiveYear = Math.min(Math.max(currentYear, tMin), tMax)
 
     return (
         <DreView
