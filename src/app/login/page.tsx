@@ -17,7 +17,20 @@ function SubmitButton() {
     )
 }
 
+import { useSearchParams } from 'next/navigation'
+
 function Login() {
+    const searchParams = useSearchParams()
+    const urlError = searchParams.get('error')
+
+    // Auto-translate common error codes
+    const getErrorMessage = (code: string | null) => {
+        if (!code) return ''
+        if (code === 'auth_failed') return 'Falha na autenticação via Google.'
+        if (code === 'auth_error_state_mismatch') return 'Sessão espirada. Tente novamente.'
+        return 'Ocorreu um erro. Tente novamente.'
+    }
+
     const [showForgot, setShowForgot] = useState(false)
     const [state, formAction] = useFormState(async (prevState: any, formData: FormData) => {
         const result = await login(formData)
@@ -25,7 +38,7 @@ function Login() {
             return { error: result.error }
         }
         return prevState
-    }, initialState)
+    }, { error: getErrorMessage(urlError) })
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-[var(--bg-primary)]">

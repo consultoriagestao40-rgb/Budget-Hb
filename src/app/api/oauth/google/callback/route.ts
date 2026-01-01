@@ -23,8 +23,13 @@ export async function GET(request: Request): Promise<Response> {
             cookieState: storedState,
             paramState: state
         });
+
+        // Redirect to login with error instead of 400
         return new Response(null, {
-            status: 400
+            status: 302,
+            headers: {
+                Location: "/login?error=auth_error_state_mismatch"
+            }
         });
     }
 
@@ -58,8 +63,7 @@ export async function GET(request: Request): Promise<Response> {
                 });
             }
             userId = existingUser.id;
-            tenantId = existingUser.tenantId;
-            tenantId = existingUser.tenantId;
+            tenantId = existingUser.tenantId; // Fixed duplicate line
             role = googleUser.email === 'consultoria.gestao4.0@gmail.com' ? 'SUPER_ADMIN' : existingUser.role;
             userName = existingUser.name;
 
@@ -83,7 +87,7 @@ export async function GET(request: Request): Promise<Response> {
                             email: googleUser.email,
                             name: googleUser.name,
                             password: '', // No password for OAuth users
-                            role: googleUser.email === 'consultoria.gestao4.0@gmail.com' ? 'SUPER_ADMIN' : 'ADMIN', // First user is Admin, specific email is Super Admin
+                            role: googleUser.email === 'consultoria.gestao4.0@gmail.com' ? 'SUPER_ADMIN' : 'ADMIN', // First user is Admin
                             googleId: googleUser.id
                         }
                     },
