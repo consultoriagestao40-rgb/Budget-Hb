@@ -225,6 +225,26 @@ export default async function DrePage({
     // Extract unique states
     const states = Array.from(new Set(cities.filter(c => c.state).map(c => c.state!))).sort()
 
+    // Safety: Redirect if currentYear is outside tenant range
+    const tMin = tenant?.minYear || 2024
+    const tMax = tenant?.maxYear || 2027
+    if (currentYear < tMin || currentYear > tMax) {
+        const safeYear = Math.min(Math.max(currentYear, tMin), tMax)
+        const params = new URLSearchParams()
+        if (companyId) params.set('companyId', companyId)
+        if (costCenterId) params.set('costCenterId', costCenterId)
+        if (clientId) params.set('clientId', clientId)
+        if (departmentId) params.set('departmentId', departmentId)
+        if (segmentId) params.set('segmentId', segmentId)
+        if (ccSegmentId) params.set('ccSegmentId', ccSegmentId)
+        if (cityId) params.set('cityId', cityId)
+        if (state) params.set('state', state)
+        if (activeVersionId) params.set('versionId', activeVersionId)
+
+        params.set('year', safeYear.toString())
+        redirect(`/dashboard/dre?${params.toString()}`)
+    }
+
     return (
         <DreView
             initialData={data}
