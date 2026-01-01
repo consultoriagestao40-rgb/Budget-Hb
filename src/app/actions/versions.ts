@@ -112,14 +112,21 @@ export async function deleteVersion(id: string) {
 // --- Year Configuration ---
 
 export async function updateYearRange(minYear: number, maxYear: number) {
-    const session = await getSession()
-    await checkAdmin(session)
+    try {
+        const session = await getSession()
+        await checkAdmin(session)
 
-    await prisma.tenant.update({
-        where: { id: session.tenantId },
-        data: { minYear, maxYear }
-    })
-    revalidatePath('/dashboard/dre')
+        console.log(`Updating year range for tenant ${session.tenantId}: ${minYear} - ${maxYear}`)
+
+        await prisma.tenant.update({
+            where: { id: session.tenantId },
+            data: { minYear, maxYear }
+        })
+        revalidatePath('/dashboard/dre')
+    } catch (error: any) {
+        console.error('Failed to update year range:', error)
+        throw new Error(error.message || 'Failed to update year range')
+    }
 }
 
 export async function clearYearData(year: number, versionId: string) {

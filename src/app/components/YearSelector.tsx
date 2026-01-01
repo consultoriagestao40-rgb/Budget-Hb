@@ -26,6 +26,8 @@ export function YearSelector({
         message: React.ReactNode
         onConfirm: () => void
         variant: 'danger' | 'warning'
+        confirmText?: string
+        cancelText?: string
     }>({
         isOpen: false,
         title: '',
@@ -69,8 +71,15 @@ export function YearSelector({
                         if (currentYear === maxYear) newMax--
 
                         if (newMin > newMax) {
-                            alert('Não é possível remover o último ano restante.') // Can be toast later
-                            setConfirmConfig(prev => ({ ...prev, isOpen: false }))
+                            setConfirmConfig({
+                                isOpen: true,
+                                title: 'Operação Inválida',
+                                message: 'Não é possível remover o último ano restante.',
+                                variant: 'warning',
+                                onConfirm: () => setConfirmConfig(prev => ({ ...prev, isOpen: false })),
+                                confirmText: 'OK',
+                                cancelText: ''
+                            })
                             setIsLoading(false)
                             return
                         }
@@ -83,11 +92,18 @@ export function YearSelector({
                         params.set('year', safeYear.toString())
                         router.push(`${pathname}?${params.toString()}`)
                         setConfirmConfig(prev => ({ ...prev, isOpen: false }))
-                    } catch (e) {
+                    } catch (e: any) {
                         console.error('Failed to remove year', e)
-                        alert('Erro ao remover ano.')
+                        setConfirmConfig({
+                            isOpen: true,
+                            title: 'Erro Critico',
+                            message: `Não foi possível remover o ano.\n\nDetalhes: ${e.message || 'Erro desconhecido.'}\n\nTente recarregar a página.`,
+                            variant: 'danger',
+                            onConfirm: () => setConfirmConfig(prev => ({ ...prev, isOpen: false })),
+                            confirmText: 'Fechar',
+                            cancelText: ''
+                        })
                         setIsLoading(false)
-                        setConfirmConfig(prev => ({ ...prev, isOpen: false }))
                     }
                 }
             })
@@ -167,6 +183,8 @@ export function YearSelector({
                 title={confirmConfig.title}
                 message={confirmConfig.message}
                 variant={confirmConfig.variant}
+                confirmText={confirmConfig.confirmText}
+                cancelText={confirmConfig.cancelText}
                 isLoading={isLoading}
             />
         </div >
