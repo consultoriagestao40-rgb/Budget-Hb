@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { createVersion, updateVersion, deleteVersion } from '@/app/actions/versions'
 import { Modal } from './Modal'
+import { ConfirmationModal } from './ConfirmationModal'
 
 interface BudgetVersion {
     id: string
@@ -24,6 +25,19 @@ export function VersionSelector({
 
     const [isManageOpen, setIsManageOpen] = useState(false)
     const [isLoading, setIsLoading] = useState(false)
+    const [confirmConfig, setConfirmConfig] = useState<{
+        isOpen: boolean
+        title: string
+        message: React.ReactNode
+        onConfirm: () => void
+        variant: 'danger' | 'warning'
+    }>({
+        isOpen: false,
+        title: '',
+        message: '',
+        onConfirm: () => { },
+        variant: 'danger'
+    })
 
     // Manage Modal State
     const [editingVersion, setEditingVersion] = useState<BudgetVersion | null>(null) // If null and creating -> new
@@ -76,21 +90,30 @@ export function VersionSelector({
         }
     }
 
-    const handleDelete = async (id: string) => {
-        if (!confirm('Tem certeza? Isso apagará TODOS os dados desta versão.')) return
-        setIsLoading(true)
-        try {
-            await deleteVersion(id)
-            if (currentVersionId === id) {
-                // Determine fallback version
-                const fallback = versions.find(v => v.id !== id)
-                if (fallback) handleVersionChange(fallback.id)
+    const handleDelete = async (id: string, name: string) => {
+        setConfirmConfig({
+            isOpen: true,
+            title: 'Excluir Versão?',
+            message: `Tem certeza que deseja excluir a versão **"${name}"**?\n\nIsso apagará **TODOS** os dados e lançamentos associados a esta versão.\nEsta ação não pode ser desfeita.`,
+            variant: 'danger',
+            onConfirm: async () => {
+                setIsLoading(true)
+                try {
+                    await deleteVersion(id)
+                    if (currentVersionId === id) {
+                        // Determine fallback version
+                        const fallback = versions.find(v => v.id !== id)
+                        if (fallback) handleVersionChange(fallback.id)
+                    }
+                    setConfirmConfig(prev => ({ ...prev, isOpen: false }))
+                } catch (e) {
+                    alert('Erro ao excluir')
+                    setConfirmConfig(prev => ({ ...prev, isOpen: false }))
+                } finally {
+                    setIsLoading(false)
+                }
             }
-        } catch (e) {
-            alert('Erro ao excluir')
-        } finally {
-            setIsLoading(false)
-        }
+        })
     }
 
     return (
@@ -149,7 +172,7 @@ export function VersionSelector({
                                                 ✎
                                             </button>
                                             {versions.length > 1 && (
-                                                <button onClick={() => handleDelete(v.id)} className="btn-icon p-1 text-[var(--text-secondary)] hover:text-red-500" title="Excluir">
+                                                <button onClick={() => handleDelete(v.id, v.name)} className="btn-icon p-1 text-[var(--text-secondary)] hover:text-red-500" title="Excluir">
                                                     🗑️
                                                 </button>
                                             )}
@@ -205,6 +228,16 @@ export function VersionSelector({
                     )}
                 </div>
             </Modal>
+
+            <ConfirmationModal
+                isOpen={confirmConfig.isOpen}
+                onClose={() => setConfirmConfig(prev => ({ ...prev, isOpen: false }))}
+                onConfirm={confirmConfig.onConfirm}
+                title={confirmConfig.title}
+                message={confirmConfig.message}
+                variant={confirmConfig.variant}
+                isLoading={isLoading}
+            />
         </>
     )
 }

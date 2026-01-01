@@ -6,6 +6,7 @@ import type { DreRow } from '@/types/dre'
 import { batchUpdateBudgetEntries } from '@/app/actions/budget'
 import { createAccount, deleteAccount, updateAccount } from '@/app/actions/account'
 import { Modal } from './Modal'
+import { ConfirmationModal } from './ConfirmationModal'
 import { BudgetEditModal } from './BudgetEditModal'
 
 const MONTHS = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ']
@@ -49,6 +50,21 @@ export function DreTable({ initialData, tenantId, year, availableCompanies, filt
     // State for Edit Budget Values
     const [isEditModalOpen, setIsEditModalOpen] = useState(false)
     const [editTarget, setEditTarget] = useState<{ id: string, name: string, values: number[] } | null>(null)
+
+    // State for Confirmation
+    const [confirmConfig, setConfirmConfig] = useState<{
+        isOpen: boolean
+        title: string
+        message: React.ReactNode
+        onConfirm: () => void
+        variant: 'danger' | 'warning'
+    }>({
+        isOpen: false,
+        title: '',
+        message: '',
+        onConfirm: () => { },
+        variant: 'danger'
+    })
 
     // Permission Check Helper
     const canEditContext = () => {
@@ -128,14 +144,23 @@ export function DreTable({ initialData, tenantId, year, availableCompanies, filt
 
     const handleDeleteClick = async (id: string, name: string) => {
         if (!canManageStructure) return
-        if (confirm(`Tem certeza que deseja excluir "${name}"? Isso apagará também os lançamentos.`)) {
-            try {
-                await deleteAccount(id)
-            } catch (error: any) {
-                console.error('Delete failed:', error)
-                alert('Erro ao excluir conta: ' + (error.message || 'Erro desconhecido'))
+
+        setConfirmConfig({
+            isOpen: true,
+            title: 'Excluir Conta',
+            message: `Tem certeza que deseja excluir **"${name}"**?\n\nIsso apagará também todos os lançamentos associados a esta conta.\nEsta ação não pode ser desfeita.`,
+            variant: 'danger',
+            onConfirm: async () => {
+                try {
+                    await deleteAccount(id)
+                    setConfirmConfig(prev => ({ ...prev, isOpen: false }))
+                } catch (error: any) {
+                    console.error('Delete failed:', error)
+                    alert('Erro ao excluir conta: ' + (error.message || 'Erro desconhecido'))
+                    setConfirmConfig(prev => ({ ...prev, isOpen: false }))
+                }
             }
-        }
+        })
     }
 
     const handleCreateAccount = async () => {
@@ -547,6 +572,15 @@ export function DreTable({ initialData, tenantId, year, availableCompanies, filt
                     onSave={handleSaveBudget}
                 />
             )}
+
+            <ConfirmationModal
+                isOpen={confirmConfig.isOpen}
+                onClose={() => setConfirmConfig(prev => ({ ...prev, isOpen: false }))}
+                onConfirm={confirmConfig.onConfirm}
+                title={confirmConfig.title}
+                message={confirmConfig.message}
+                variant={confirmConfig.variant}
+            />
         </div>
     )
 }

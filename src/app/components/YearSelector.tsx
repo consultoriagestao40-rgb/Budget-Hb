@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { updateYearRange, clearYearData } from '@/app/actions/versions'
 import { useState } from 'react'
+import { ConfirmationModal } from './ConfirmationModal'
 
 export function YearSelector({
     currentYear,
@@ -19,6 +20,19 @@ export function YearSelector({
     const pathname = usePathname()
     const searchParams = useSearchParams()
     const [isLoading, setIsLoading] = useState(false)
+    const [confirmConfig, setConfirmConfig] = useState<{
+        isOpen: boolean
+        title: string
+        message: React.ReactNode
+        onConfirm: () => void
+        variant: 'danger' | 'warning'
+    }>({
+        isOpen: false,
+        title: '',
+        message: '',
+        onConfirm: () => { },
+        variant: 'danger'
+    })
 
     const handleYearChange = (year: number) => {
         const params = new URLSearchParams(searchParams.toString())
@@ -41,49 +55,64 @@ export function YearSelector({
         const isEdge = currentYear === minYear || currentYear === maxYear
 
         if (isEdge) {
-            if (confirm(`Deseja remover o ano ${currentYear} da linha do tempo GLOBALMENTE?\n\nIsso afetará todas as versões e usuários.\n\nClique em OK para Remover o Ano da Linha do Tempo.\nClique em Cancelar para manter o ano e ver opções de limpeza de dados.`)) {
+            setConfirmConfig({
+                isOpen: true,
+                title: 'Remover Ano Globalmente?',
+                message: `Deseja remover o ano **${currentYear}** da linha do tempo?\n\nIsso afetará **TODAS** as versões e usuários.\nEsta ação não pode ser desfeita.`,
+                variant: 'danger',
+                onConfirm: async () => {
+                    setIsLoading(true)
+                    try {
+                        let newMin = minYear
+                        let newMax = maxYear
+                        if (currentYear === minYear) newMin++
+                        if (currentYear === maxYear) newMax--
+
+                        if (newMin > newMax) {
+                            alert('Não é possível remover o último ano restante.') // Can be toast later
+                            setConfirmConfig(prev => ({ ...prev, isOpen: false }))
+                            setIsLoading(false)
+                            return
+                        }
+
+                        await updateYearRange(newMin, newMax)
+
+                        // Redirect to a safe year
+                        const safeYear = currentYear === minYear ? newMin : newMax
+                        const params = new URLSearchParams(searchParams.toString())
+                        params.set('year', safeYear.toString())
+                        router.push(`${pathname}?${params.toString()}`)
+                        setConfirmConfig(prev => ({ ...prev, isOpen: false }))
+                    } catch (e) {
+                        console.error('Failed to remove year', e)
+                        alert('Erro ao remover ano.')
+                        setIsLoading(false)
+                        setConfirmConfig(prev => ({ ...prev, isOpen: false }))
+                    }
+                }
+            })
+            return
+        }
+
+        setConfirmConfig({
+            isOpen: true,
+            title: `Zerar Valores de ${currentYear}?`,
+            message: `Deseja zerar todos os valores deste ano APENAS na versão **${currentVersionId === 'v1' ? 'Principal' : 'Simulação'}**?\n\nO ano continuará visível, mas os lançamentos serão apagados.`,
+            variant: 'warning',
+            onConfirm: async () => {
                 setIsLoading(true)
                 try {
-                    let newMin = minYear
-                    let newMax = maxYear
-                    if (currentYear === minYear) newMin++
-                    if (currentYear === maxYear) newMax--
-
-                    if (newMin > newMax) {
-                        alert('Não é possível remover o último ano restante.')
-                        setIsLoading(false)
-                        return
-                    }
-
-                    await updateYearRange(newMin, newMax)
-
-                    // Redirect to a safe year
-                    const safeYear = currentYear === minYear ? newMin : newMax
-                    const params = new URLSearchParams(searchParams.toString())
-                    params.set('year', safeYear.toString())
-                    router.push(`${pathname}?${params.toString()}`)
-                    return
+                    await clearYearData(currentYear, currentVersionId)
+                    // Success feedback handled by UI refresh or toast eventually
+                    setConfirmConfig(prev => ({ ...prev, isOpen: false }))
                 } catch (e) {
-                    console.error('Failed to remove year', e)
-                    alert('Erro ao remover ano.')
+                    console.error('Failed to clear year', e)
+                    alert('Erro ao limpar dados do ano.')
+                } finally {
                     setIsLoading(false)
-                    return
                 }
             }
-        }
-
-        if (confirm(`Deseja ZERAR todos os valores do ano ${currentYear} APENAS nesta versão (${currentVersionId === 'v1' ? 'Principal' : 'Simulação'})?\n\nO ano continuará visível na linha do tempo.`)) {
-            setIsLoading(true)
-            try {
-                await clearYearData(currentYear, currentVersionId)
-                alert('Dados do ano limpos com sucesso.')
-            } catch (e) {
-                console.error('Failed to clear year', e)
-                alert('Erro ao limpar dados do ano.')
-            } finally {
-                setIsLoading(false)
-            }
-        }
+        })
     }
 
     const availableYears = []
@@ -131,6 +160,15 @@ export function YearSelector({
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                 </button>
             </div>
-        </div>
+            <ConfirmationModal
+                isOpen={confirmConfig.isOpen}
+                onClose={() => setConfirmConfig(prev => ({ ...prev, isOpen: false }))}
+                onConfirm={confirmConfig.onConfirm}
+                title={confirmConfig.title}
+                message={confirmConfig.message}
+                variant={confirmConfig.variant}
+                isLoading={isLoading}
+            />
+        </div >
     )
 }
