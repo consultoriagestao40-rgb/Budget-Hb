@@ -120,6 +120,7 @@ model Company {
 model Grouping {
   id        String   @id @default(uuid())
   name      String
+  code      String?  // Hierarchical Code
 
   tenantId  String
   tenant    Tenant   @relation(fields: [tenantId], references: [id])
