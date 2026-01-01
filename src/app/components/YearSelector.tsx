@@ -45,7 +45,10 @@ export function YearSelector({
     const handleAddYear = async () => {
         setIsLoading(true)
         try {
-            await updateYearRange(minYear, maxYear + 1)
+            const result = await updateYearRange(minYear, maxYear + 1)
+            if (!result.success) {
+                console.error('Failed to add year:', result.error)
+            }
         } catch (e) {
             console.error('Failed to add year', e)
         } finally {
@@ -84,7 +87,11 @@ export function YearSelector({
                             return
                         }
 
-                        await updateYearRange(newMin, newMax)
+                        const result = await updateYearRange(newMin, newMax)
+
+                        if (!result.success) {
+                            throw new Error(result.error)
+                        }
 
                         // Redirect to a safe year
                         const safeYear = currentYear === minYear ? newMin : newMax
