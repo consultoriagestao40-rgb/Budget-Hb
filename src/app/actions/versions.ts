@@ -15,9 +15,18 @@ async function getSession() {
 }
 
 async function checkAdmin(session: SessionData) {
-    if (session.role !== 'ADMIN') {
-        throw new Error('Forbidden: Only Admins can manage versions')
-    }
+    if (session.role === 'ADMIN') return
+
+    // Heuristics for "Owner" who might have missed the ADMIN tag
+    // 1. If Tenant has ownerEmail set and matches session
+    const tenant = await prisma.tenant.findUnique({ where: { id: session.tenantId } })
+    if (tenant?.ownerEmail === session.email) return
+
+    // 2. If Tenant has only 1 user, that user is effectively Admin
+    const userCount = await prisma.user.count({ where: { tenantId: session.tenantId } })
+    if (userCount === 1) return
+
+    throw new Error('Forbidden: Only Admins can manage versions')
 }
 
 // --- Versions ---
@@ -123,6 +132,7 @@ export async function updateYearRange(minYear: number, maxYear: number) {
             data: { minYear, maxYear }
         })
 
+        revalidatePath('/dashboard/dre')
         return { success: true }
     } catch (error: any) {
         console.error('Failed to update year range:', error)
