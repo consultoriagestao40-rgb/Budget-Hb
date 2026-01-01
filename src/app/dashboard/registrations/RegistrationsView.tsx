@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Modal } from '@/app/components/Modal'
+import { ConfirmationModal, ConfirmationConfig } from '@/app/components/ConfirmationModal'
 import {
     createCompany, updateCompany, deleteCompany,
     createDepartment, updateDepartment, deleteDepartment,
@@ -66,6 +67,9 @@ export function RegistrationsView({
         segmentId: '',
         state: '' // UF
     })
+
+    // Confirmation Modal State
+    const [confirmConfig, setConfirmConfig] = useState<ConfirmationConfig | null>(null)
 
     const tabs: { id: EntityType, label: string }[] = [
         { id: 'COMPANY', label: 'Empresas' },
@@ -144,7 +148,7 @@ export function RegistrationsView({
                     break
                 case 'DEPARTMENT':
                     if (!formData.companyId) throw new Error('Selecione uma Empresa.')
-                    const deptData = { name: basicData.name, companyId: formData.companyId }
+                    const deptData = { name: basicData.name, code: basicData.code, companyId: formData.companyId }
                     isEdit ? await updateDepartment(editingEntity!.id, deptData) : await createDepartment(deptData)
                     break
                 case 'COST_CENTER':
@@ -169,7 +173,7 @@ export function RegistrationsView({
                     break
                 case 'EXPENSE_CENTER':
                     if (!formData.groupingId) throw new Error('Selecione um Departamento.')
-                    const expData = { name: basicData.name, groupingId: formData.groupingId }
+                    const expData = { name: basicData.name, code: basicData.code, groupingId: formData.groupingId }
                     isEdit ? await updateExpenseCenter(editingEntity!.id, expData) : await createExpenseCenter(expData)
                     break
                 case 'CITY':
@@ -186,26 +190,50 @@ export function RegistrationsView({
             }
             setIsModalOpen(false)
         } catch (error: any) {
-            alert(error.message || 'Erro ao salvar')
+            setConfirmConfig({
+                isOpen: true,
+                title: 'Erro',
+                message: error.message || 'Erro ao salvar',
+                variant: 'danger',
+                confirmText: 'OK',
+                onConfirm: () => setConfirmConfig(null)
+            })
         }
     }
 
-    const handleDelete = async (id: string) => {
-        if (!confirm('Tem certeza que deseja excluir?')) return
-        try {
-            switch (activeTab) {
-                case 'COMPANY': await deleteCompany(id); break
-                case 'DEPARTMENT': await deleteDepartment(id); break
-                case 'COST_CENTER': await deleteCostCenter(id); break
-                case 'CLIENT': await deleteClient(id); break
-                case 'EXPENSE_CENTER': await deleteExpenseCenter(id); break
-                case 'CITY': await deleteCity(id); break
-                case 'CC_GROUP': await deleteCostCenterGroup(id); break
-                case 'CC_SEGMENT': await deleteCostCenterSegment(id); break
-            }
-        } catch (error: any) {
-            alert(error.message || 'Erro ao excluir')
-        }
+    const handleDelete = async (id: string, name: string) => {
+        setConfirmConfig({
+            isOpen: true,
+            title: 'Confirmar Exclusão',
+            message: `Tem certeza que deseja excluir "${name}"?`,
+            variant: 'danger',
+            confirmText: 'Excluir',
+            cancelText: 'Cancelar',
+            onConfirm: async () => {
+                try {
+                    switch (activeTab) {
+                        case 'COMPANY': await deleteCompany(id); break
+                        case 'DEPARTMENT': await deleteDepartment(id); break
+                        case 'COST_CENTER': await deleteCostCenter(id); break
+                        case 'CLIENT': await deleteClient(id); break
+                        case 'EXPENSE_CENTER': await deleteExpenseCenter(id); break
+                        case 'CITY': await deleteCity(id); break
+                        case 'CC_GROUP': await deleteCostCenterGroup(id); break
+                        case 'CC_SEGMENT': await deleteCostCenterSegment(id); break
+                    }
+                    setConfirmConfig(null)
+                } catch (error: any) {
+                    setConfirmConfig({
+                        isOpen: true,
+                        title: 'Erro',
+                        message: error.message || 'Erro ao excluir',
+                        variant: 'danger',
+                        confirmText: 'OK',
+                        onConfirm: () => setConfirmConfig(null)
+                    })
+                }
+            },
+        })
     }
 
     const getLinkedName = (id: string | null | undefined, list: BaseEntity[]) => {
@@ -343,7 +371,7 @@ export function RegistrationsView({
                                                     ✎
                                                 </button>
                                                 <button
-                                                    onClick={() => handleDelete(item.id)}
+                                                    onClick={() => handleDelete(item.id, item.name)}
                                                     className="p-1 hover:bg-[var(--bg-main)] rounded text-[var(--text-secondary)] hover:text-[var(--danger)]"
                                                     title="Excluir"
                                                 >
@@ -498,6 +526,20 @@ export function RegistrationsView({
                     </div>
                 </div>
             </Modal>
-        </div>
+
+            {
+                confirmConfig && (
+                    <ConfirmationModal
+                        isOpen={confirmConfig.isOpen}
+                        onClose={() => setConfirmConfig(null)}
+                        onConfirm={confirmConfig.onConfirm}
+                        title={confirmConfig.title}
+                        message={confirmConfig.message}
+                        variant={confirmConfig.variant}
+                        confirmText={confirmConfig.confirmText}
+                        cancelText={confirmConfig.cancelText}
+                    />
+                )}
+        </div >
     )
 }

@@ -2,7 +2,18 @@
 
 import { Modal } from './Modal'
 
-interface ConfirmationModalProps {
+export interface ConfirmationConfig {
+    isOpen: boolean
+    title: string
+    message: React.ReactNode
+    onConfirm: () => void
+    variant?: 'danger' | 'warning' | 'info'
+    confirmText?: string
+    cancelText?: string
+    isLoading?: boolean
+}
+
+export interface ConfirmationModalProps {
     isOpen: boolean
     onClose: () => void
     onConfirm: () => void
