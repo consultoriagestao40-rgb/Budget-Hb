@@ -213,7 +213,7 @@ export function RegistrationsView({
         return list.find(l => l.id === id)?.name || '-'
     }
 
-    const showCodeField = ['COMPANY', 'COST_CENTER'].includes(activeTab)
+    const showCodeField = ['COMPANY', 'COST_CENTER', 'DEPARTMENT', 'EXPENSE_CENTER'].includes(activeTab)
 
     return (
         <div className="flex flex-col h-full bg-[var(--bg-main)]">

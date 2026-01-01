@@ -57,17 +57,17 @@ export async function deleteCompany(id: string) {
 }
 
 // --- Departments (Grouping) ---
-export async function createDepartment(data: { name: string, companyId: string }) {
+export async function createDepartment(data: { name: string, code?: string, companyId: string }) {
     const { session } = await checkAuth()
     await prisma.grouping.create({
-        data: { name: data.name, tenantId: session.tenantId, companyId: data.companyId }
+        data: { name: data.name, code: data.code, tenantId: session.tenantId, companyId: data.companyId }
     })
     revalidatePath('/dashboard/registrations')
 }
 
-export async function updateDepartment(id: string, data: { name: string, companyId: string }) {
+export async function updateDepartment(id: string, data: { name: string, code?: string, companyId: string }) {
     await checkAuth()
-    await prisma.grouping.update({ where: { id }, data: { name: data.name, companyId: data.companyId } })
+    await prisma.grouping.update({ where: { id }, data: { name: data.name, code: data.code, companyId: data.companyId } })
     revalidatePath('/dashboard/registrations')
 }
 
@@ -230,17 +230,17 @@ export async function deleteCostCenterSegment(id: string) {
 }
 
 // --- Expense Centers (Segment/Centro de Despesa) ---
-export async function createExpenseCenter(data: { name: string, groupingId: string }) {
+export async function createExpenseCenter(data: { name: string, code?: string, groupingId: string }) {
     const { session } = await checkAuth()
     await prisma.segment.create({
-        data: { name: data.name, tenantId: session.tenantId, groupingId: data.groupingId }
+        data: { name: data.name, code: data.code, tenantId: session.tenantId, groupingId: data.groupingId }
     })
     revalidatePath('/dashboard/registrations')
 }
 
-export async function updateExpenseCenter(id: string, data: { name: string, groupingId: string }) {
+export async function updateExpenseCenter(id: string, data: { name: string, code?: string, groupingId: string }) {
     await checkAuth()
-    await prisma.segment.update({ where: { id }, data: { name: data.name, groupingId: data.groupingId } })
+    await prisma.segment.update({ where: { id }, data: { name: data.name, code: data.code, groupingId: data.groupingId } })
     revalidatePath('/dashboard/registrations')
 }
 

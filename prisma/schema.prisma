@@ -217,6 +217,7 @@ model Segment { // Keep existing Segment (Centros de Despesa) as is? Or rename t
 // So "CostCenterSegment" is the new one for Cost Center.
   id        String   @id @default(uuid())
   name      String
+  code      String?  // Hierarchical Code
 
   tenantId  String
   tenant    Tenant   @relation(fields: [tenantId], references: [id])
