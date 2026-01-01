@@ -225,36 +225,25 @@ export default async function DrePage({
     // Extract unique states
     const states = Array.from(new Set(cities.filter(c => c.state).map(c => c.state!))).sort()
 
-    // Safety: Redirect if currentYear is outside tenant range
+    // Safety: Clamp currentYear to tenant range to prevent crash
+    // We do NOT redirect here because it breaks Server Actions server-side re-render.
+    // The client handles redirection to a safe year.
     const tMin = tenant?.minYear || 2024
     const tMax = tenant?.maxYear || 2027
-    if (currentYear < tMin || currentYear > tMax) {
-        const safeYear = Math.min(Math.max(currentYear, tMin), tMax)
-        const params = new URLSearchParams()
-        if (companyId) params.set('companyId', companyId)
-        if (costCenterId) params.set('costCenterId', costCenterId)
-        if (clientId) params.set('clientId', clientId)
-        if (departmentId) params.set('departmentId', departmentId)
-        if (segmentId) params.set('segmentId', segmentId)
-        if (ccSegmentId) params.set('ccSegmentId', ccSegmentId)
-        if (cityId) params.set('cityId', cityId)
-        if (state) params.set('state', state)
-        if (activeVersionId) params.set('versionId', activeVersionId)
 
-        params.set('year', safeYear.toString())
-        redirect(`/dashboard/dre?${params.toString()}`)
-    }
+    // Use effectiveYear for data fetching and rendering
+    const effectiveYear = Math.min(Math.max(currentYear, tMin), tMax)
 
     return (
         <DreView
             initialData={data}
             tenantId={tenantId}
             dreTitle={tenant?.dreTitle || "Demonstrativo de Resultados (DRE)"}
-            currentYear={currentYear}
+            currentYear={effectiveYear} // Pass effective year
             versions={budgetVersions}
             currentVersionId={activeVersionId}
-            minYear={tenant?.minYear || 2024}
-            maxYear={tenant?.maxYear || 2027}
+            minYear={tMin}
+            maxYear={tMax}
 
             // Filter Data
             companies={companies}
