@@ -1,8 +1,9 @@
 'use client'
 
 import { useFormState, useFormStatus } from 'react-dom'
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
 import { login } from '@/app/actions/auth'
+import { useSearchParams } from 'next/navigation'
 
 const initialState = {
     error: '',
@@ -17,9 +18,7 @@ function SubmitButton() {
     )
 }
 
-import { useSearchParams } from 'next/navigation'
-
-function Login() {
+function LoginForm() {
     const searchParams = useSearchParams()
     const urlError = searchParams.get('error')
 
@@ -155,4 +154,14 @@ function Login() {
     )
 }
 
-export default Login
+export default function Login() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen flex items-center justify-center bg-[var(--bg-primary)]">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--primary)]"></div>
+            </div>
+        }>
+            <LoginForm />
+        </Suspense>
+    )
+}
