@@ -122,7 +122,9 @@ export async function updateYearRange(minYear: number, maxYear: number) {
             where: { id: session.tenantId },
             data: { minYear, maxYear }
         })
-        revalidatePath('/dashboard/dre')
+        // Removing revalidatePath to prevent crash when current page becomes invalid
+        // The client handles redirection to a safe year.
+        // revalidatePath('/dashboard/dre')
     } catch (error: any) {
         console.error('Failed to update year range:', error)
         throw new Error(error.message || 'Failed to update year range')
