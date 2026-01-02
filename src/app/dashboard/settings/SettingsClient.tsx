@@ -28,7 +28,7 @@ interface SettingsClientProps {
 type TabType = 'companies' | 'costCenters' | 'clients' | 'groupings' | 'cities' | 'groups' | 'segments' | 'users' | 'account'
 
 interface Permission {
-    type: 'COMPANY' | 'COST_CENTER' | 'SEGMENT'
+    type: 'COMPANY' | 'COST_CENTER' // | 'SEGMENT'
     entityId: string
     canView: boolean
     canEdit: boolean
@@ -152,8 +152,8 @@ export function SettingsClient({
         try {
             const userPerms: any[] = await getUserPermissions(user.id)
             const mapped: Permission[] = userPerms.map(p => ({
-                type: p.companyId ? 'COMPANY' : (p.costCenterId ? 'COST_CENTER' : 'SEGMENT'),
-                entityId: p.companyId || p.costCenterId || p.segmentId!,
+                type: p.companyId ? 'COMPANY' : 'COST_CENTER', // (p.costCenterId ? 'COST_CENTER' : 'SEGMENT'),
+                entityId: p.companyId || p.costCenterId!, // || p.segmentId!,
                 canView: p.canView,
                 canEdit: p.canEdit,
                 canCreate: p.canCreate,
@@ -168,7 +168,7 @@ export function SettingsClient({
         }
     }
 
-    const togglePermission = (type: 'COMPANY' | 'COST_CENTER' | 'SEGMENT', entityId: string) => {
+    const togglePermission = (type: 'COMPANY' | 'COST_CENTER', entityId: string) => {
         const exists = permissions.find(p => p.type === type && p.entityId === entityId)
         if (exists) {
             setPermissions(permissions.filter(p => !(p.type === type && p.entityId === entityId)))
@@ -184,7 +184,7 @@ export function SettingsClient({
         }
     }
 
-    const updatePermissionFlag = (type: 'COMPANY' | 'COST_CENTER' | 'SEGMENT', entityId: string, field: keyof Permission, value: boolean) => {
+    const updatePermissionFlag = (type: 'COMPANY' | 'COST_CENTER', entityId: string, field: keyof Permission, value: boolean) => {
         setPermissions(permissions.map(p => {
             if (p.type === type && p.entityId === entityId) {
                 return { ...p, [field]: value }
@@ -606,7 +606,7 @@ export function SettingsClient({
                                         </div>
                                     </div>
 
-                                    {/* Segments (Expense Centers) */}
+                                    {/* Segments (Expense Centers) - Temporarily Disabled (Schema Revert)
                                     <div>
                                         <h3 className="font-bold text-[var(--text-primary)] mb-2 mt-4 bg-[var(--bg-main)]/50 p-2 rounded backdrop-blur border border-[var(--border-subtle)] sticky top-0">Centros de Despesa</h3>
                                         <div className="space-y-1">
@@ -641,6 +641,7 @@ export function SettingsClient({
                                             })}
                                         </div>
                                     </div>
+                                    */}
                                 </>
                             )}
                         </div>
