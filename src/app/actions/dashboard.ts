@@ -25,7 +25,15 @@ export async function getDashboardSummary(year: number, versionId?: string) {
     // 0. Fetch User Permissions
     const user = await prisma.user.findUnique({
         where: { id: session.userId },
-        include: { permissions: true }
+        include: {
+            permissions: {
+                select: {
+                    companyId: true,
+                    costCenterId: true,
+                    canView: true
+                }
+            }
+        }
     })
     const permissions = user?.permissions || []
     const allowedCompanyIds = permissions.filter(p => p.companyId).map(p => p.companyId!)
