@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { DashboardMetric, SummaryRow } from '../actions/dashboard'
+import { DashboardMetric, SummaryRow } from '@/types/dashboard-types'
 import { ChevronDown, ChevronRight, Building, Layers } from 'lucide-react'
 import { useSidebarStore } from '@/store/sidebarStore'
 
