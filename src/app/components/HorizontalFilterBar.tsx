@@ -6,12 +6,14 @@ interface FilterOption {
     id: string
     name: string
     code?: string | null
+    companyId?: string | null
+    groupingId?: string | null // For Department linkage
 }
 
 interface HorizontalFilterBarProps {
     companies: FilterOption[]
-    departments: any[] // Using any for now to avoid extensive type mapping updates
-    costCenters: any[]
+    departments: FilterOption[]
+    costCenters: FilterOption[]
     clients: FilterOption[]
     segments: FilterOption[] // Centro de Despesa
     ccSegments: FilterOption[] // Seguimento
@@ -117,11 +119,54 @@ export function HorizontalFilterBar({
     const filteredClients = clients.filter(c => activeClientIds.has(c.id))
 
     // 6. Filter Cities by State
+    // --- Hierarchical Label Helpers ---
+    const getCompanyCode = (id: string | null | undefined) => {
+        if (!id) return ''
+        const c = companies.find(x => x.id === id)
+        return c?.code || ''
+    }
+
+    const getDepartmentCode = (id: string | null | undefined) => {
+        if (!id) return ''
+        const d = departments.find(x => x.id === id)
+        // If Dept has code, we might want Company.Dept or just Dept.
+        // Usually full hierarchy: Company.Dept
+        if (!d) return ''
+        const cCode = getCompanyCode(d.companyId)
+        return cCode && d.code ? `${cCode}.${d.code}` : (d.code || '')
+    }
+
+    // Prepare Options with Full Codes
+    const preparedDepartments = filteredDepartments.map(d => ({
+        ...d,
+        fullCode: (() => {
+            const val = getCompanyCode(d.companyId)
+            return val && d.code ? `${val}.${d.code}` : d.code
+        })()
+    }))
+
+    const preparedCostCenters = filteredCostCenters.map(cc => ({
+        ...cc,
+        fullCode: (() => {
+            const deptFull = getDepartmentCode(cc.groupingId)
+            return deptFull && cc.code ? `${deptFull}.${cc.code}` : cc.code
+        })()
+    }))
+
+    const preparedSegments = (filteredSegments as FilterOption[]).map(s => ({
+        ...s,
+        fullCode: (() => {
+            const deptFull = getDepartmentCode(s.groupingId)
+            return deptFull && s.code ? `${deptFull}.${s.code}` : s.code
+        })()
+    }))
+
+    // 6. Filter Cities by State
     const filteredCities = currentFilters.state !== 'all'
         ? cities.filter(c => c.state === currentFilters.state)
         : cities
 
-    const FilterSelect = ({ label, value, onChange, options, disabled = false }: { label: string, value: string, onChange: (v: string) => void, options: FilterOption[], disabled?: boolean }) => (
+    const FilterSelect = ({ label, value, onChange, options, disabled = false }: { label: string, value: string, onChange: (v: string) => void, options: (FilterOption & { fullCode?: string | null })[], disabled?: boolean }) => (
         <div className="flex flex-col gap-1 min-w-[150px] flex-1">
             <label className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">{label}</label>
             <select
@@ -133,7 +178,7 @@ export function HorizontalFilterBar({
                 <option value="all">Todos</option>
                 {options.map(opt => (
                     <option key={opt.id} value={opt.id}>
-                        {opt.code ? `${opt.code} - ${opt.name}` : opt.name}
+                        {opt.fullCode ? `${opt.fullCode} - ${opt.name}` : (opt.code ? `${opt.code} - ${opt.name}` : opt.name)}
                     </option>
                 ))}
             </select>
@@ -153,14 +198,14 @@ export function HorizontalFilterBar({
                     label="Departamento"
                     value={currentFilters.departmentId}
                     onChange={v => handleFilterChange('departmentId', v)}
-                    options={filteredDepartments}
+                    options={preparedDepartments}
                     disabled={filteredDepartments.length === 0}
                 />
                 <FilterSelect
                     label="Centro de Custo"
                     value={currentFilters.costCenterId}
                     onChange={v => handleFilterChange('costCenterId', v)}
-                    options={filteredCostCenters}
+                    options={preparedCostCenters}
                     disabled={filteredCostCenters.length === 0}
                 />
                 <FilterSelect
@@ -181,7 +226,7 @@ export function HorizontalFilterBar({
                     label="Centro de Despesa"
                     value={currentFilters.segmentId}
                     onChange={v => handleFilterChange('segmentId', v)}
-                    options={filteredSegments}
+                    options={preparedSegments}
                     disabled={filteredSegments.length === 0}
                 />
                 <div className="flex flex-col gap-1 min-w-[100px] w-[100px]">
