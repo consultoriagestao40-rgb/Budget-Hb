@@ -49,39 +49,27 @@ async function getDreData(
     const permissionConditions: any[] = []
 
     const hasGranularCostCenters = constraints?.allowedCostCenterIds && constraints.allowedCostCenterIds.length > 0
-    // const permissionConditions: any[] = [] // Removed duplicate declaration
+    const hasGranularSegments = constraints?.allowedSegmentIds && constraints.allowedSegmentIds.length > 0
 
-    if (constraints?.allowedCompanyIds?.length) {
+    if (hasGranularCostCenters || hasGranularSegments) {
+        // Granular Mode: User has specified sub-items.
         if (hasGranularCostCenters) {
-            // Granular Mode: Company permission only grants access to Company Overhead (entries without Cost Center)
-            // The specific Cost Centers must be allowed via the explicit rule below.
-            permissionConditions.push({
-                AND: [
-                    { companyId: { in: constraints.allowedCompanyIds } },
-                    { costCenterId: null }
-                ]
-            })
-            // We also need to include implicit overhead via relations? 
-            // Ideally overhead is BudgetEntry with no CC.
-            // If data uses CC for everything, this hides all "Unchecked" CCs. Correct.
-        } else {
-            // Full Mode: Company permission grants everything in that company
-            permissionConditions.push({
-                OR: [
-                    { companyId: { in: constraints.allowedCompanyIds } },
-                    { grouping: { companyId: { in: constraints.allowedCompanyIds } } },
-                    { costCenter: { grouping: { companyId: { in: constraints.allowedCompanyIds } } } },
-                    { segment: { grouping: { companyId: { in: constraints.allowedCompanyIds } } } }
-                ]
-            })
+            permissionConditions.push({ costCenterId: { in: constraints!.allowedCostCenterIds } })
         }
+        if (hasGranularSegments) {
+            permissionConditions.push({ segmentId: { in: constraints!.allowedSegmentIds } })
+        }
+    } else if (constraints?.allowedCompanyIds?.length) {
+        // Broad Mode: Full Company Access
+        permissionConditions.push({
+            OR: [
+                { companyId: { in: constraints.allowedCompanyIds } },
+                { grouping: { companyId: { in: constraints.allowedCompanyIds } } },
+                { costCenter: { grouping: { companyId: { in: constraints.allowedCompanyIds } } } },
+                { segment: { grouping: { companyId: { in: constraints.allowedCompanyIds } } } }
+            ]
+        })
     }
-
-    if (constraints?.allowedCostCenterIds?.length) {
-        permissionConditions.push({ costCenterId: { in: constraints.allowedCostCenterIds } })
-    }
-
-    // if (constraints?.allowedSegmentIds?.length) ... (Future)
 
     // Apply Permissions as a single AND condition containing the ORs
     // WHERE (CompAllowed OR CCAllowed)
@@ -269,6 +257,7 @@ export default async function DrePage({
                 select: {
                     companyId: true,
                     costCenterId: true,
+                    segmentId: true,
                     canView: true
                 }
             }
@@ -280,7 +269,7 @@ export default async function DrePage({
 
     const allowedCompanyIds = permissions.filter(p => p.companyId).map(p => p.companyId!)
     const allowedCostCenterIds = permissions.filter(p => p.costCenterId).map(p => p.costCenterId!)
-    // const allowedSegmentIds = permissions.filter(p => p.segmentId).map(p => p.segmentId!)
+    const allowedSegmentIds = permissions.filter(p => p.segmentId).map(p => p.segmentId!)
 
     const companyFilter: any = { tenantId }
     if (allowedCompanyIds.length > 0) {
@@ -329,7 +318,7 @@ export default async function DrePage({
         }, {
             allowedCompanyIds: allowedCompanyIds.length > 0 ? allowedCompanyIds : undefined,
             allowedCostCenterIds: allowedCostCenterIds.length > 0 ? allowedCostCenterIds : undefined,
-            // allowedSegmentIds: allowedSegmentIds.length > 0 ? allowedSegmentIds : undefined
+            allowedSegmentIds: allowedSegmentIds.length > 0 ? allowedSegmentIds : undefined
         }),
         prisma.company.findMany({ where: companyFilter }),
         prisma.costCenter.findMany({ where: costCenterFilter }),

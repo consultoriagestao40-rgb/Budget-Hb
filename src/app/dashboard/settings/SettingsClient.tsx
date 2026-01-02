@@ -624,14 +624,41 @@ export function SettingsClient({
                                         </div>
                                     </div>
 
-                                    {/* Segments (Expense Centers) - Disabled due to Schema Mismatch
+                                    {/* Segments (Expense Centers) */}
                                     <div>
-                                        <h3 className="font-bold text-[var(--text-primary)] mb-2 mt-4 bg-[var(--bg-main)]/50 p-2 rounded backdrop-blur border border-[var(--border-subtle)] sticky top-0">Centros de Despesa (Desativado Temporariamente)</h3>
-                                        <div className="p-4 text-xs text-[var(--text-secondary)] bg-[var(--bg-secondary)] rounded">
-                                            A gestão granular de Centros de Despesa está em manutenção. Por favor, utilize as permissões de Centro de Custo.
+                                        <h3 className="font-bold text-[var(--text-primary)] mb-2 mt-4 bg-[var(--bg-main)]/50 p-2 rounded backdrop-blur border border-[var(--border-subtle)] sticky top-0">Centros de Despesa</h3>
+                                        <div className="space-y-1">
+                                            {initialExpenseCenters.map(seg => {
+                                                const perm = permissions.find(p => p.type === 'SEGMENT' && p.entityId === seg.id)
+                                                return (
+                                                    <div key={seg.id} className="flex items-center justify-between p-2 rounded hover:bg-[var(--bg-surface-hover)] border border-transparent hover:border-[var(--border-subtle)] transition-colors">
+                                                        <label className="flex items-center gap-2 cursor-pointer flex-1 select-none">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={!!perm}
+                                                                onChange={() => togglePermission('SEGMENT', seg.id)}
+                                                                className="checkbox"
+                                                            />
+                                                            {seg.code && <span className="font-mono text-xs opacity-70">{seg.code}</span>}
+                                                            <span className="text-sm">{seg.name}</span>
+                                                        </label>
+                                                        {perm && (
+                                                            <div className="flex gap-4 text-xs bg-[var(--bg-main)] px-2 py-1 rounded">
+                                                                <label className="flex items-center gap-1 cursor-pointer" title="Visualizar">
+                                                                    <input type="checkbox" checked={perm.canView} onChange={(e) => updatePermissionFlag('SEGMENT', seg.id, 'canView', e.target.checked)} />
+                                                                    <span>Ver</span>
+                                                                </label>
+                                                                <label className="flex items-center gap-1 cursor-pointer" title="Editar">
+                                                                    <input type="checkbox" checked={perm.canEdit} onChange={(e) => updatePermissionFlag('SEGMENT', seg.id, 'canEdit', e.target.checked)} />
+                                                                    <span>Edit</span>
+                                                                </label>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )
+                                            })}
                                         </div>
                                     </div>
-                                    */}
                                 </>
                             )}
                         </div>
