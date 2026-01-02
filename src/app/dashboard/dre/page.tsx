@@ -49,7 +49,7 @@ async function getDreData(
     const permissionConditions: any[] = []
 
     const hasGranularCostCenters = constraints?.allowedCostCenterIds && constraints.allowedCostCenterIds.length > 0
-    const permissionConditions: any[] = []
+    // const permissionConditions: any[] = [] // Removed duplicate declaration
 
     if (constraints?.allowedCompanyIds?.length) {
         if (hasGranularCostCenters) {
