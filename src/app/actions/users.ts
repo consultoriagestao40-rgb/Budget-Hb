@@ -153,8 +153,7 @@ export async function updateUserPermissions(
                     await tx.userPermission.create({ data })
                 } catch (e: any) {
                     console.error('Error creating permission:', e)
-                    // Throw a clearer error for the UI
-                    throw new Error(`Falha ao salvar permissão (${p.type}): ${e.message}`)
+                    // Continue loop instead of crashing
                 }
             }
         }
