@@ -67,9 +67,10 @@ export function DashboardSummary({ data }: DashboardSummaryProps) {
 
                 {/* Name / Tree Toggle (Sticky Left) */}
                 <div
-                    className={`flex items-center gap-2 overflow-hidden sticky left-0 z-10 pl-4 py-3 -ml-4 -my-3 border-r border-[var(--border-color)] ${depth > 0 ? 'bg-[var(--bg-main)]' : 'bg-[var(--bg-surface)]'}`}
+                    className={`flex items-center gap-2 overflow-hidden sticky left-0 z-10 pl-4 py-3 -ml-4 -my-3 border-r border-[var(--border-color)]`}
                     style={{
-                        paddingLeft: `${16 + (depth * 20)}px`
+                        paddingLeft: `${16 + (depth * 20)}px`,
+                        backgroundColor: depth > 0 ? 'var(--bg-main)' : 'var(--bg-surface)'
                     }}
                 >
                     {hasChildren ? (
