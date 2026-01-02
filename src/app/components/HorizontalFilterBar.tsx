@@ -5,6 +5,7 @@ import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 interface FilterOption {
     id: string
     name: string
+    code?: string | null
 }
 
 interface HorizontalFilterBarProps {
@@ -131,7 +132,9 @@ export function HorizontalFilterBar({
             >
                 <option value="all">Todos</option>
                 {options.map(opt => (
-                    <option key={opt.id} value={opt.id}>{opt.name}</option>
+                    <option key={opt.id} value={opt.id}>
+                        {opt.code ? `${opt.code} - ${opt.name}` : opt.name}
+                    </option>
                 ))}
             </select>
         </div>
