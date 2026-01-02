@@ -381,7 +381,7 @@ export function DreTable({ initialData, tenantId, year, availableCompanies, filt
                         {initialData.length === 0 ? (
                             <tr>
                                 <td colSpan={14} className="p-8 text-center text-[var(--text-secondary)]">
-                                    Nenhuma conta cadastrada. Clique em "Nova Conta Principal" para começar.
+                                    Nenhuma conta cadastrada. Clique em &quot;Nova Conta Principal&quot; para começar.
                                 </td>
                             </tr>
                         ) : (

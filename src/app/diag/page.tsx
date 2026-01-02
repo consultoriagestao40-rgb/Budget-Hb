@@ -26,7 +26,7 @@ export default function DiagPage() {
             <div className="mb-8 p-4 border border-blue-500 rounded bg-blue-900/20">
                 <h2 className="text-xl font-bold mb-2">Repair Database Schema</h2>
                 <p className="mb-4 text-sm text-gray-300">
-                    Fix "Column does not exist" errors by adding missing columns manually.
+                    Fix &quot;Column does not exist&quot; errors by adding missing columns manually.
                 </p>
                 <button
                     onClick={handleRepair}
