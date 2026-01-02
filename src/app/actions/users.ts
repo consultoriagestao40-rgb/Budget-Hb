@@ -93,7 +93,7 @@ export async function getUserPermissions(userId: string) {
         include: {
             company: { select: { id: true, name: true } },
             costCenter: { select: { id: true, name: true, code: true } },
-            segment: { select: { id: true, name: true, code: true } }
+            // segment: { select: { id: true, name: true, code: true } }
         }
     })
 }
@@ -101,7 +101,7 @@ export async function getUserPermissions(userId: string) {
 export async function updateUserPermissions(
     userId: string,
     permissions: Array<{
-        type: 'COMPANY' | 'COST_CENTER' | 'SEGMENT',
+        type: 'COMPANY' | 'COST_CENTER', // | 'SEGMENT',
         entityId: string,
         canView: boolean,
         canEdit: boolean,
