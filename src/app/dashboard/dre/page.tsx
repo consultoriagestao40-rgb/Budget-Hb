@@ -39,32 +39,56 @@ async function getDreData(
         budgetVersionId: filters.versionId,
     }
 
+    // 4. Robust Filtering Logic
+    const andConditions: any[] = []
+
+    // --- Company Filter ---
     if (filters.companyId && filters.companyId !== 'all') {
-        whereClause.companyId = filters.companyId
+        andConditions.push({
+            OR: [
+                { companyId: filters.companyId },
+                { grouping: { companyId: filters.companyId } },
+                { costCenter: { grouping: { companyId: filters.companyId } } },
+                { segment: { grouping: { companyId: filters.companyId } } }
+            ]
+        })
     } else if (constraints?.allowedCompanyIds?.length) {
-        whereClause.companyId = { in: constraints.allowedCompanyIds }
+        andConditions.push({
+            OR: [
+                { companyId: { in: constraints.allowedCompanyIds } },
+                { grouping: { companyId: { in: constraints.allowedCompanyIds } } },
+                { costCenter: { grouping: { companyId: { in: constraints.allowedCompanyIds } } } },
+                { segment: { grouping: { companyId: { in: constraints.allowedCompanyIds } } } }
+            ]
+        })
     }
 
+    // --- Cost Center Filter ---
     if (filters.costCenterId && filters.costCenterId !== 'all') {
-        whereClause.costCenterId = filters.costCenterId
+        andConditions.push({ costCenterId: filters.costCenterId })
     } else if (constraints?.allowedCostCenterIds?.length) {
-        whereClause.costCenterId = { in: constraints.allowedCostCenterIds }
+        andConditions.push({ costCenterId: { in: constraints.allowedCostCenterIds } })
     }
 
-    // Segment (Expense Center) Permission Logic
-    // Segment (Expense Center) Permission Logic
-    if (filters.segmentId && filters.segmentId !== 'all') {
-        whereClause.segmentId = filters.segmentId
-    } /* else if (constraints?.allowedSegmentIds?.length) {
-        whereClause.segmentId = { in: constraints.allowedSegmentIds }
-    } */
-
-    if (filters.clientId && filters.clientId !== 'all') whereClause.clientId = filters.clientId
-
-    // Department Filter (Grouping)
+    // --- Department Filter (Grouping) ---
     if (filters.departmentId && filters.departmentId !== 'all') {
-        whereClause.groupingId = filters.departmentId
+        andConditions.push({
+            OR: [
+                { groupingId: filters.departmentId },
+                { costCenter: { groupingId: filters.departmentId } },
+                { segment: { groupingId: filters.departmentId } }
+            ]
+        })
     }
+
+    // Apply AND conditions
+    if (andConditions.length > 0) {
+        whereClause.AND = andConditions
+    }
+
+    // --- Other Simple Filters ---
+    if (filters.segmentId && filters.segmentId !== 'all') whereClause.segmentId = filters.segmentId
+    if (filters.clientId && filters.clientId !== 'all') whereClause.clientId = filters.clientId
 
     // Complex relationships filters
     if (filters.ccSegmentId && filters.ccSegmentId !== 'all') {

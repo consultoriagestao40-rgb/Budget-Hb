@@ -45,7 +45,7 @@ export function SettingsClient({
 
     // Modal State
     const [isModalOpen, setIsModalOpen] = useState(false)
-    const [formData, setFormData] = useState({ name: '', code: '', email: '', role: 'USER', password: '', state: '' })
+    const [formData, setFormData] = useState({ name: '', code: '', email: '', role: 'USER', password: '', state: '', companyId: '' })
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [editingId, setEditingId] = useState<string | null>(null)
 
@@ -68,7 +68,7 @@ export function SettingsClient({
     const [isSavingProfile, setIsSavingProfile] = useState(false)
 
     const handleOpenModal = () => {
-        setFormData({ name: '', code: '', email: '', role: 'USER', password: '', state: '' })
+        setFormData({ name: '', code: '', email: '', role: 'USER', password: '', state: '', companyId: '' })
         setEditingId(null)
         setIsModalOpen(true)
     }
@@ -80,7 +80,8 @@ export function SettingsClient({
             email: user.email,
             role: user.role,
             password: '',
-            state: ''
+            state: '',
+            companyId: ''
         })
         setEditingId(user.id)
         setIsModalOpen(true)
@@ -102,7 +103,7 @@ export function SettingsClient({
                 if (activeTab === 'companies') await createCompany({ name: formData.name, code: formData.code })
                 else if (activeTab === 'costCenters') await createCostCenter({ name: formData.name, code: formData.code })
                 else if (activeTab === 'clients') await createClient(formData.name)
-                else if (activeTab === 'groupings') await createGrouping(formData.name)
+                else if (activeTab === 'groupings') await createGrouping({ name: formData.name, companyId: formData.companyId || undefined })
                 else if (activeTab === 'cities') {
                     if (!formData.state) throw new Error('Estado (UF) é obrigatório')
                     await createCity(formData.name, formData.state)
@@ -505,6 +506,23 @@ export function SettingsClient({
                                     placeholder="Nome Oficial"
                                 />
                             </div>
+
+                            {activeTab === 'groupings' && (
+                                <div className="mt-4">
+                                    <label className="block text-sm font-medium mb-1">Empresa (Opcional, mas recomendado)</label>
+                                    <select
+                                        value={formData.companyId}
+                                        onChange={e => setFormData({ ...formData, companyId: e.target.value })}
+                                        className="input-outline"
+                                    >
+                                        <option value="">Selecione uma empresa...</option>
+                                        {initialCompanies.map(c => (
+                                            <option key={c.id} value={c.id}>{c.name}</option>
+                                        ))}
+                                    </select>
+                                    <p className="text-xs text-[var(--text-muted)] mt-1">Vincular a uma empresa habilita os filtros corretamente.</p>
+                                </div>
+                            )}
                         </>
                     )}
 

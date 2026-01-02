@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { getIronSession } from 'iron-session'
 import { cookies } from 'next/headers'
 import { sessionOptions, SessionData } from '@/lib/session'
-import { calculateDre } from '../../lib/dre-engine'
+import { calculateDre } from './dre-engine'
 import { DreRow } from '@/types/dre'
 import { DashboardMetric, SummaryRow } from '@/types/dashboard-types'
 

@@ -139,10 +139,16 @@ export async function getGroupings() {
     })
 }
 
-export async function createGrouping(name: string) {
+export async function createGrouping(data: { name: string; companyId?: string }) {
     const session = await getSession()
     await checkAdmin(session)
-    await prisma.grouping.create({ data: { name, tenantId: session.tenantId } })
+    await prisma.grouping.create({
+        data: {
+            name: data.name,
+            companyId: data.companyId,
+            tenantId: session.tenantId
+        }
+    })
     revalidatePath('/dashboard/settings')
 }
 
