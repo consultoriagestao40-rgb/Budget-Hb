@@ -48,15 +48,33 @@ async function getDreData(
     // We must combine these constraints with OR, not AND.
     const permissionConditions: any[] = []
 
+    const hasGranularCostCenters = constraints?.allowedCostCenterIds && constraints.allowedCostCenterIds.length > 0
+    const permissionConditions: any[] = []
+
     if (constraints?.allowedCompanyIds?.length) {
-        permissionConditions.push({
-            OR: [
-                { companyId: { in: constraints.allowedCompanyIds } },
-                { grouping: { companyId: { in: constraints.allowedCompanyIds } } },
-                { costCenter: { grouping: { companyId: { in: constraints.allowedCompanyIds } } } },
-                { segment: { grouping: { companyId: { in: constraints.allowedCompanyIds } } } }
-            ]
-        })
+        if (hasGranularCostCenters) {
+            // Granular Mode: Company permission only grants access to Company Overhead (entries without Cost Center)
+            // The specific Cost Centers must be allowed via the explicit rule below.
+            permissionConditions.push({
+                AND: [
+                    { companyId: { in: constraints.allowedCompanyIds } },
+                    { costCenterId: null }
+                ]
+            })
+            // We also need to include implicit overhead via relations? 
+            // Ideally overhead is BudgetEntry with no CC.
+            // If data uses CC for everything, this hides all "Unchecked" CCs. Correct.
+        } else {
+            // Full Mode: Company permission grants everything in that company
+            permissionConditions.push({
+                OR: [
+                    { companyId: { in: constraints.allowedCompanyIds } },
+                    { grouping: { companyId: { in: constraints.allowedCompanyIds } } },
+                    { costCenter: { grouping: { companyId: { in: constraints.allowedCompanyIds } } } },
+                    { segment: { grouping: { companyId: { in: constraints.allowedCompanyIds } } } }
+                ]
+            })
+        }
     }
 
     if (constraints?.allowedCostCenterIds?.length) {
