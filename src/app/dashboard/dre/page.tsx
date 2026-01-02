@@ -282,7 +282,7 @@ export default async function DrePage({
     }
 
     // Security Check: Deny if no permissions and not Admin
-    const hasAnyPermission = allowedCompanyIds.length > 0 || allowedCostCenterIds.length > 0
+    const hasAnyPermission = allowedCompanyIds.length > 0 || allowedCostCenterIds.length > 0 || allowedSegmentIds.length > 0
     if (!hasAnyPermission && user?.role !== 'ADMIN') {
         // Return empty view immediately
         return (
