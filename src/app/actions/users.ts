@@ -92,7 +92,8 @@ export async function getUserPermissions(userId: string) {
         where: { userId },
         include: {
             company: { select: { id: true, name: true } },
-            costCenter: { select: { id: true, name: true, code: true } }
+            costCenter: { select: { id: true, name: true, code: true } },
+            segment: { select: { id: true, name: true, code: true } }
         }
     })
 }
@@ -100,7 +101,7 @@ export async function getUserPermissions(userId: string) {
 export async function updateUserPermissions(
     userId: string,
     permissions: Array<{
-        type: 'COMPANY' | 'COST_CENTER',
+        type: 'COMPANY' | 'COST_CENTER' | 'SEGMENT',
         entityId: string,
         canView: boolean,
         canEdit: boolean,
@@ -144,6 +145,7 @@ export async function updateUserPermissions(
 
                 if (p.type === 'COMPANY') data.companyId = p.entityId
                 if (p.type === 'COST_CENTER') data.costCenterId = p.entityId
+                if (p.type === 'SEGMENT') data.segmentId = p.entityId
 
                 console.log('Creating permission:', data)
 

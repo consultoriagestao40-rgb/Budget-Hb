@@ -88,6 +88,9 @@ model UserPermission {
   costCenterId String?
   costCenter   CostCenter? @relation(fields: [costCenterId], references: [id])
 
+  segmentId    String?
+  segment      Segment?   @relation(fields: [segmentId], references: [id])
+
   canView   Boolean @default(true)
   canEdit   Boolean @default(false)
   canCreate Boolean @default(false)
@@ -228,6 +231,7 @@ model Segment { // Keep existing Segment (Centros de Despesa) as is? Or rename t
   grouping   Grouping? @relation(fields: [groupingId], references: [id])
 
   budgetEntries BudgetEntry[]
+  userPermissions UserPermission[]
 }
 
 

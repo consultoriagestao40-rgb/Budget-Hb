@@ -19,6 +19,11 @@ async function getDreData(
         departmentId?: string
         cityId?: string
         state?: string
+    },
+    constraints?: {
+        allowedCompanyIds?: string[]
+        allowedCostCenterIds?: string[]
+        allowedSegmentIds?: string[]
     }
 ) {
     // 1. Fetch Account Plan
@@ -34,10 +39,26 @@ async function getDreData(
         budgetVersionId: filters.versionId,
     }
 
-    if (filters.companyId && filters.companyId !== 'all') whereClause.companyId = filters.companyId
-    if (filters.costCenterId && filters.costCenterId !== 'all') whereClause.costCenterId = filters.costCenterId
+    if (filters.companyId && filters.companyId !== 'all') {
+        whereClause.companyId = filters.companyId
+    } else if (constraints?.allowedCompanyIds?.length) {
+        whereClause.companyId = { in: constraints.allowedCompanyIds }
+    }
+
+    if (filters.costCenterId && filters.costCenterId !== 'all') {
+        whereClause.costCenterId = filters.costCenterId
+    } else if (constraints?.allowedCostCenterIds?.length) {
+        whereClause.costCenterId = { in: constraints.allowedCostCenterIds }
+    }
+
+    // Segment (Expense Center) Permission Logic
+    if (filters.segmentId && filters.segmentId !== 'all') {
+        whereClause.segmentId = filters.segmentId
+    } else if (constraints?.allowedSegmentIds?.length) {
+        whereClause.segmentId = { in: constraints.allowedSegmentIds }
+    }
+
     if (filters.clientId && filters.clientId !== 'all') whereClause.clientId = filters.clientId
-    if (filters.segmentId && filters.segmentId !== 'all') whereClause.segmentId = filters.segmentId
 
     // Department Filter (Grouping)
     if (filters.departmentId && filters.departmentId !== 'all') {
@@ -186,6 +207,7 @@ export default async function DrePage({
 
     const allowedCompanyIds = permissions.filter(p => p.companyId).map(p => p.companyId!)
     const allowedCostCenterIds = permissions.filter(p => p.costCenterId).map(p => p.costCenterId!)
+    const allowedSegmentIds = permissions.filter(p => p.segmentId).map(p => p.segmentId!)
 
     const companyFilter: any = { tenantId }
     if (allowedCompanyIds.length > 0) {
@@ -220,6 +242,10 @@ export default async function DrePage({
         getDreData(tenantId, effectiveYear, {
             companyId, costCenterId, clientId, versionId: activeVersionId,
             segmentId, ccSegmentId, departmentId, cityId, state
+        }, {
+            allowedCompanyIds: allowedCompanyIds.length > 0 ? allowedCompanyIds : undefined,
+            allowedCostCenterIds: allowedCostCenterIds.length > 0 ? allowedCostCenterIds : undefined,
+            allowedSegmentIds: allowedSegmentIds.length > 0 ? allowedSegmentIds : undefined
         }),
         prisma.company.findMany({ where: companyFilter }),
         prisma.costCenter.findMany({ where: costCenterFilter }),
