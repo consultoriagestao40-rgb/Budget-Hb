@@ -231,7 +231,7 @@ model Segment { // Keep existing Segment (Centros de Despesa) as is? Or rename t
   grouping   Grouping? @relation(fields: [groupingId], references: [id])
 
   budgetEntries BudgetEntry[]
-  // userPermissions UserPermission[]
+  userPermissions UserPermission[]
 }
 
 
