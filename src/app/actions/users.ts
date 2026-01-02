@@ -88,14 +88,27 @@ export async function getUserPermissions(userId: string) {
     const session = await getSession()
     await checkAdmin(session)
 
-    return prisma.userPermission.findMany({
-        where: { userId },
-        include: {
-            company: { select: { id: true, name: true } },
-            costCenter: { select: { id: true, name: true, code: true } },
-            segment: { select: { id: true, name: true, code: true } }
-        }
-    })
+    try {
+        return await prisma.userPermission.findMany({
+            where: { userId },
+            include: {
+                company: { select: { id: true, name: true } },
+                costCenter: { select: { id: true, name: true, code: true } },
+                segment: { select: { id: true, name: true, code: true } }
+            }
+        })
+    } catch (error) {
+        console.error('Error fetching permissions with segments (Schema mismatch?):', error)
+        // Fallback: Fetch without 'segment' include if the column is missing/broken
+        return await prisma.userPermission.findMany({
+            where: { userId },
+            include: {
+                company: { select: { id: true, name: true } },
+                costCenter: { select: { id: true, name: true, code: true } }
+                // segment excluded in fallback
+            }
+        })
+    }
 }
 
 export async function updateUserPermissions(
