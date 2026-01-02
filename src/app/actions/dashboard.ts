@@ -4,13 +4,31 @@ import { prisma } from '@/lib/prisma'
 import { getIronSession } from 'iron-session'
 import { cookies } from 'next/headers'
 import { sessionOptions, SessionData } from '@/lib/session'
+import { calculateDre } from '@/lib/dre-engine'
+import { DreRow } from '@/types/dre'
 
-// Types for the dashboard summary
 export type DashboardMetric = {
+    // Pct fields added
     grossRevenue: number
+    grossRevenuePct: number
     netRevenue: number
-    costsExpenses: number
-    result: number
+    netRevenuePct: number
+    operationalCosts: number
+    operationalCostsPct: number
+    grossMargin: number
+    grossMarginPct: number
+    operationalExpenses: number
+    operationalExpensesPct: number
+    grossProfit: number
+    grossProfitPct: number
+    adminExpenses: number
+    adminExpensesPct: number
+    ebitda: number
+    ebitdaPct: number
+    financialExpenses: number
+    financialExpensesPct: number
+    netProfit: number
+    netProfitPct: number
     resultPercentage: number
 }
 
@@ -20,6 +38,7 @@ export type SummaryRow = {
     type: 'COMPANY' | 'COST_CENTER'
     metrics: DashboardMetric
     children?: SummaryRow[] // For Company -> CostCenter hierarchy
+    debugInfo?: string
 }
 
 async function getSession() {
@@ -34,186 +53,185 @@ export async function getDashboardSummary(year: number, versionId?: string) {
     const session = await getSession()
     const tenantId = session.tenantId
 
-    // 1. Fetch Key Account IDs by Name (Heuristic)
-    // We assume standard names roughly matching normal DREs
-    const accounts = await prisma.accountPlan.findMany({
-        where: { tenantId },
-        select: { id: true, name: true, code: true }
+    // 0. Fetch User Permissions
+    const user = await prisma.user.findUnique({
+        where: { id: session.userId },
+        include: { permissions: true }
     })
+    const permissions = user?.permissions || []
+    const allowedCompanyIds = permissions.filter(p => p.companyId).map(p => p.companyId!)
+    const allowedCostCenterIds = permissions.filter(p => p.costCenterId).map(p => p.costCenterId!)
 
-    const findAccountId = (terms: string[]) => {
-        const acc = accounts.find(a => terms.some(t => a.name.toUpperCase().includes(t)))
-        return acc?.id
+    // Filter Logic
+    const companyWhere: any = { tenantId }
+    if (allowedCompanyIds.length > 0) companyWhere.id = { in: allowedCompanyIds }
+
+    const costCenterWhere: any = { tenantId }
+    if (allowedCostCenterIds.length > 0) costCenterWhere.id = { in: allowedCostCenterIds }
+
+    // Resolve Implicit Permissions (Departments of Allowed Companies)
+    let allowedGroupingIds: string[] = []
+    if (allowedCompanyIds.length > 0) {
+        const ag = await prisma.grouping.findMany({
+            where: { tenantId, companyId: { in: allowedCompanyIds } },
+            select: { id: true }
+        })
+        allowedGroupingIds = ag.map(g => g.id)
     }
 
-    const grossRevId = findAccountId(['RECEITA BRUTA', 'RECEITAS OPERACIONAIS', 'RECEITA TOTAL'])
-    const netRevId = findAccountId(['RECEITA LÍQUIDA', 'RECEITA LIQUIDA'])
-    const resultId = findAccountId(['RESULTADO DO EXERCÍCIO', 'RESULTADO DO EXERCICIO', 'LUCRO/PREJUÍZO', 'RESULTADO LÍQUIDO'])
+    const entryWhere: any = {
+        tenantId,
+        year,
+        ...(versionId ? { budgetVersionId: versionId } : {})
+    }
 
-    // Note: Costs/Expenses is usually derived: Net Revenue - Result (Simplified)
-    // Or we can try to find "CUSTOS" and "DESPESAS" separately and sum them if needed.
-    // Let's use the derived approach for simplicity and consistency with the "Result" equation: Result = Revenue - Costs
-    // So Costs = Revenue - Result.
+    // Apply Permissions (Company OR Cost Center OR Department)
+    const hasRestrictions = allowedCompanyIds.length > 0 || allowedCostCenterIds.length > 0
+    if (hasRestrictions) {
+        entryWhere.OR = []
+        if (allowedCompanyIds.length > 0) entryWhere.OR.push({ companyId: { in: allowedCompanyIds } })
+        if (allowedCostCenterIds.length > 0) entryWhere.OR.push({ costCenterId: { in: allowedCostCenterIds } })
+        if (allowedGroupingIds.length > 0) entryWhere.OR.push({ groupingId: { in: allowedGroupingIds } })
+    }
 
-    // 2. Fetch Aggregated Budget Entries
-    // We fetch raw entries for these specific accounts (if Input) OR we calculate?
-    // Wait, DRE lines are often formulae. We cannot just sum entries for "Result" if "Result" is a calculation.
-    // PROPER APPROACH: We must use the DRE Engine logic but limit it to specific groupings.
-    // Since we need to calculate this for EVERY Cost Center, running the full DRE engine 100 times is heavy.
-    // OPTIMIZATION:
-    // 1. Fetch ALL entries for the year.
-    // 2. Build a mapping of Account -> Values for each Company/CostCenter combination.
-    // 3. Resolve the formulas for the 3 target lines (Gross, Net, Result).
+    // 1. Fetch Data with Filters
+    const [accountPlan, entries, companies, costCenters, groupings] = await Promise.all([
+        prisma.accountPlan.findMany({ where: { tenantId }, orderBy: { code: 'asc' } }),
+        prisma.budgetEntry.findMany({ where: entryWhere }),
+        prisma.company.findMany({ where: companyWhere, orderBy: { name: 'asc' } }),
+        prisma.costCenter.findMany({ where: costCenterWhere, orderBy: { name: 'asc' } }),
+        prisma.grouping.findMany({ where: { tenantId } }) // Fetch Departments to resolve CC ownership
+    ])
 
-    // Let's implement the localized DRE Engine.
+    // Helper: Map CostCenter -> Company (via Department)
+    // This handles cases where BudgetEntry.companyId might be inconsistent but CC is correct
+    const ccToCompanyMap = new Map<string, string>()
+    const deptToCompanyMap = new Map<string, string>() // New Map for Departments
 
-    // Fetch Accounts with Formulas
-    const accountPlan = await prisma.accountPlan.findMany({
-        where: { tenantId },
-        orderBy: { code: 'asc' }
-    })
-
-    const entries = await prisma.budgetEntry.findMany({
-        where: {
-            tenantId,
-            year,
-            ...(versionId ? { budgetVersionId: versionId } : {})
-        }
-    })
-
-    const companies = await prisma.company.findMany({
-        where: { tenantId },
-        orderBy: { name: 'asc' }
-    })
-
-    const costCenters = await prisma.costCenter.findMany({
-        where: { tenantId },
-        orderBy: { name: 'asc' }
-    })
-
-    // Data Structure: Map<Key, Map<AccountId, number>> where Key is `${companyId}:${costCenterId}`
-    const calculator = new Map<string, Map<string, number>>()
-
-    const getKey = (cId: string | null, ccId: string | null) => `${cId || 'none'}:${ccId || 'none'}`
-
-    // Initialize Calculator
-    companies.forEach(c => {
-        // We'll calculate for Company Total
-        // And also for each Cost Center under it
-        const cCenters = costCenters.filter(cc => cc.clientId === c.id || true) // Relationship? Assuming generic for now, wait.
-        // BudgetEntry has both companyId and costCenterId.
-    })
-
-    // Populate Inputs
-    entries.forEach(entry => {
-        const val = entry.amount
-        const key = getKey(entry.companyId, entry.costCenterId)
-
-        if (!calculator.has(key)) calculator.set(key, new Map())
-        const store = calculator.get(key)!
-
-        const accId = entry.accountId
-        store.set(accId, (store.get(accId) || 0) + val)
-    })
-
-    // Formula Solver Function
-    const solve = (accId: string | undefined, store: Map<string, number>, visited = new Set<string>()): number => {
-        if (!accId) return 0
-        if (visited.has(accId)) return 0 // Loop prevention
-        visited.add(accId)
-
-        if (store.has(accId) && !accountPlan.find(a => a.id === accId)?.formula) {
-            return store.get(accId)!
-        }
-
-        const account = accountPlan.find(a => a.id === accId)
-        if (!account) return 0
-
-        // If it's INPUT type but not in store, it's 0
-        if (account.type === 'INPUT') return store.get(accId) || 0
-
-        // CALCULATED
-        if (account.formula) {
-            // Replace @code with value
-            let formula = account.formula
-            // We need to resolve codes to IDs first or search by code
-            // Optimization: Map Code -> ID
-            // Simple regex replacement:
-            const expression = formula.replace(/@([\w\.]+)/g, (match, code) => {
-                const targetAcc = accountPlan.find(a => a.code === code)
-                return solve(targetAcc?.id, store, new Set(visited)).toString()
-            })
-
-            try {
-                // eslint-disable-next-line
-                const result = new Function(`return ${expression}`)()
-                const num = typeof result === 'number' && !isNaN(result) ? result : 0
-                store.set(accId, num) // Memoize for this specific store
-                return num
-            } catch (e) {
-                return 0
+    costCenters.forEach(cc => {
+        if (cc.groupingId) {
+            const dept = groupings.find(g => g.id === cc.groupingId)
+            if (dept && dept.companyId) {
+                ccToCompanyMap.set(cc.id, dept.companyId)
             }
         }
+    })
 
-        // Sum Children (Default)
-        const children = accountPlan.filter(a => a.parentId === accId)
-        if (children.length > 0) {
-            const sum = children.reduce((acc, child) => acc + solve(child.id, store, new Set(visited)), 0)
-            store.set(accId, sum)
-            return sum
+    groupings.forEach(g => {
+        if (g.companyId) {
+            deptToCompanyMap.set(g.id, g.companyId)
+        }
+    })
+
+
+
+
+
+
+    // Helper to extract specific DRE line values from the Full Calculated Tree
+    const extractMetrics = (rows: DreRow[]): DashboardMetric => {
+        // Flatten the tree to search easily
+        const flatRows: DreRow[] = []
+        const traverse = (nodes: DreRow[]) => {
+            for (const node of nodes) {
+                flatRows.push(node)
+                if (node.children) traverse(node.children)
+            }
+        }
+        traverse(rows)
+
+        // Find rows by Code (1, 3, 4, etc.)
+        const findVal = (code: string) => {
+            // Find EXACT code match
+            // The row.values is an array of 12 months. We need the YEAR TOTAL.
+            const row = flatRows.find(r => r.code === code)
+            if (!row) return 0
+            return row.values.reduce((a, b) => a + b, 0)
         }
 
-        return 0
-    }
+        const grossRevenue = findVal('1')
+        const netRevenue = findVal('3')
+        const operationalCosts = findVal('4')
+        const grossMargin = findVal('5')
+        const operationalExpenses = findVal('6')
+        const grossProfit = findVal('7')
+        const adminExpenses = findVal('8')
+        const ebitda = findVal('9')
+        const financialExpenses = findVal('10')
+        const netProfit = findVal('11')
 
-    // Build Output Tree
-    const resultRows: SummaryRow[] = []
+        // Vertical Analysis Helper (Base: Gross Revenue)
+        const calcPct = (val: number) => grossRevenue !== 0 ? (val / grossRevenue) * 100 : 0
 
-    // Helper to calc metrics for a specific filter
-    const getMetrics = (filter: (e: any) => boolean): DashboardMetric => {
-        // Create a temporary store aggregating matching entries
-        const tempStore = new Map<string, number>()
-        entries.filter(filter).forEach(e => {
-            tempStore.set(e.accountId, (tempStore.get(e.accountId) || 0) + e.amount)
-        })
-
-        const gross = solve(grossRevId, tempStore)
-        const net = solve(netRevId, tempStore)
-        const res = solve(resultId, tempStore)
-
-        // Costs = Net - Result (Assuming Result = Net - Costs) or Gross - Result?
-        // Usually DRE: Gross -> Net -> Gross Profit -> Operating Result -> Net Result
-        // If "Result" is the bottom line, then Total Costs/Exp = Net Revenue - Result
-        // If Result is negative (Loss), say Net=100, Result=-10. Costs = 100 - (-10) = 110. Correct.
-        const costs = net - res
+        const grossRevenuePct = grossRevenue !== 0 ? 100 : 0
 
         return {
-            grossRevenue: gross,
-            netRevenue: net,
-            costsExpenses: costs,
-            result: res,
-            resultPercentage: net !== 0 ? (res / net) * 100 : 0
+            grossRevenue,
+            grossRevenuePct,
+            netRevenue,
+            netRevenuePct: calcPct(netRevenue),
+            operationalCosts,
+            operationalCostsPct: calcPct(operationalCosts),
+            grossMargin,
+            grossMarginPct: calcPct(grossMargin),
+            operationalExpenses,
+            operationalExpensesPct: calcPct(operationalExpenses),
+            grossProfit,
+            grossProfitPct: calcPct(grossProfit),
+            adminExpenses,
+            adminExpensesPct: calcPct(adminExpenses),
+            ebitda,
+            ebitdaPct: calcPct(ebitda),
+            financialExpenses,
+            financialExpensesPct: calcPct(financialExpenses),
+            netProfit,
+            netProfitPct: calcPct(netProfit),
+
+            resultPercentage: netRevenue !== 0 ? (netProfit / netRevenue) * 100 : 0
         }
     }
 
-    // Iterate Companies
-    for (const company of companies) {
-        // 1. Metrics for Company Total
-        const companyMetrics = getMetrics(e => e.companyId === company.id)
+    // 2. Build Hierarchy & Calculate
+    const resultRows: SummaryRow[] = []
 
-        // 2. Metrics for Cost Centers within this Company
-        // We find CCs that have entries for this company
-        // Or checking all Cost Centers? Let's check CCs with actual data to avoid empty rows
-        const activeCCIds = new Set(entries.filter(e => e.companyId === company.id).map(e => e.costCenterId))
+    for (const company of companies) {
+        // Filter entries for this company (Robust check: Direct ID, Relation via CC, or Relation via Dept)
+        const companyEntries = entries.filter(e => {
+            if (e.companyId === company.id) return true
+            if (e.costCenterId && ccToCompanyMap.get(e.costCenterId) === company.id) return true
+            if (e.groupingId && deptToCompanyMap.get(e.groupingId) === company.id) return true
+            return false
+        })
+
+        // Run DRE Engine
+        const companyDre = calculateDre(accountPlan, companyEntries)
+        const companyMetrics = extractMetrics(companyDre)
+
+        // B. Cost Centers (Children)
+        const childrenRows: SummaryRow[] = []
+        const relevantCCs = costCenters // Filter by relation if needed, but budgetEntry check is sufficient for active ones
+
+        // Optimization: Only process CCs that have entries for this company?
+        // Actually, Cost Centers might belong to the company via `grouping` -> `company`.
+        // But entries explicitly link companyId and costCenterId.
+        // Let's iterate all cost centers that actually have data first, to avoid 100 empty runs?
+        // Or iterate ALL cost centers if the user wants to see them even if empty?
+        // Dashboard usually shows active ones. Let's filter by "Has Entries" OR "Linked to Company".
+        // To be safe and consistent with previous logic:
+        // Find CCs active in this company's entries:
+        const activeCCIds = new Set(companyEntries.map(e => e.costCenterId).filter(id => id !== null) as string[])
+
         const companyCCs = costCenters.filter(cc => activeCCIds.has(cc.id))
 
-        const childrenRows: SummaryRow[] = []
         for (const cc of companyCCs) {
+            const ccEntries = companyEntries.filter(e => e.costCenterId === cc.id)
+            const ccDre = calculateDre(accountPlan, ccEntries)
+
             childrenRows.push({
                 id: cc.id,
                 name: cc.name,
                 type: 'COST_CENTER',
-                metrics: getMetrics(e => e.companyId === company.id && e.costCenterId === cc.id)
+                metrics: extractMetrics(ccDre)
             })
         }
 
@@ -222,12 +240,14 @@ export async function getDashboardSummary(year: number, versionId?: string) {
             name: company.name,
             type: 'COMPANY',
             metrics: companyMetrics,
-            children: childrenRows
+            children: childrenRows,
+            debugInfo: `Entries: ${companyEntries.length}, CCs: ${companyCCs.length}`
         })
     }
 
-    // Calculate Grand Total
-    const totalMetrics = getMetrics(() => true)
+    // 3. Grand Total
+    const totalDre = calculateDre(accountPlan, entries)
+    const totalMetrics = extractMetrics(totalDre)
 
     return {
         rows: resultRows,
