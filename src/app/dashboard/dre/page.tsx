@@ -41,7 +41,7 @@ async function getDreData(
 
     // Department Filter (Grouping)
     if (filters.departmentId && filters.departmentId !== 'all') {
-        whereClause.costCenter = { ...whereClause.costCenter, groupingId: filters.departmentId }
+        whereClause.groupingId = filters.departmentId
     }
 
     // Complex relationships filters
