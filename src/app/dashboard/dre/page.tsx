@@ -55,9 +55,9 @@ async function getDreData(
     // Segment (Expense Center) Permission Logic
     if (filters.segmentId && filters.segmentId !== 'all') {
         whereClause.segmentId = filters.segmentId
-    } /* else if (constraints?.allowedSegmentIds?.length) {
+    } else if (constraints?.allowedSegmentIds?.length) {
         whereClause.segmentId = { in: constraints.allowedSegmentIds }
-    } */
+    }
 
     if (filters.clientId && filters.clientId !== 'all') whereClause.clientId = filters.clientId
 
@@ -208,7 +208,7 @@ export default async function DrePage({
 
     const allowedCompanyIds = permissions.filter(p => p.companyId).map(p => p.companyId!)
     const allowedCostCenterIds = permissions.filter(p => p.costCenterId).map(p => p.costCenterId!)
-    // const allowedSegmentIds = permissions.filter(p => p.segmentId).map(p => p.segmentId!)
+    const allowedSegmentIds = permissions.filter(p => p.segmentId).map(p => p.segmentId!)
 
     const companyFilter: any = { tenantId }
     if (allowedCompanyIds.length > 0) {
@@ -246,7 +246,7 @@ export default async function DrePage({
         }, {
             allowedCompanyIds: allowedCompanyIds.length > 0 ? allowedCompanyIds : undefined,
             allowedCostCenterIds: allowedCostCenterIds.length > 0 ? allowedCostCenterIds : undefined,
-            // allowedSegmentIds: allowedSegmentIds.length > 0 ? allowedSegmentIds : undefined
+            allowedSegmentIds: allowedSegmentIds.length > 0 ? allowedSegmentIds : undefined
         }),
         prisma.company.findMany({ where: companyFilter }),
         prisma.costCenter.findMany({ where: costCenterFilter }),
