@@ -224,7 +224,15 @@ export default async function DrePage({
     // Get User Permissions
     const user = await prisma.user.findUnique({
         where: { id: session.userId },
-        include: { permissions: true }
+        include: {
+            permissions: {
+                select: {
+                    companyId: true,
+                    costCenterId: true,
+                    canView: true
+                }
+            }
+        }
     })
 
     // @ts-ignore - Prisma include inference
