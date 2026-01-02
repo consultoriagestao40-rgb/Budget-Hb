@@ -43,17 +43,13 @@ async function getDreData(
     const andConditions: any[] = []
 
     // --- Company Filter ---
-    if (filters.companyId && filters.companyId !== 'all') {
-        andConditions.push({
-            OR: [
-                { companyId: filters.companyId },
-                { grouping: { companyId: filters.companyId } },
-                { costCenter: { grouping: { companyId: filters.companyId } } },
-                { segment: { grouping: { companyId: filters.companyId } } }
-            ]
-        })
-    } else if (constraints?.allowedCompanyIds?.length) {
-        andConditions.push({
+    // --- Permission Constraints (Base Scope) ---
+    // User can see data if they have access to the Company OR the Cost Center
+    // We must combine these constraints with OR, not AND.
+    const permissionConditions: any[] = []
+
+    if (constraints?.allowedCompanyIds?.length) {
+        permissionConditions.push({
             OR: [
                 { companyId: { in: constraints.allowedCompanyIds } },
                 { grouping: { companyId: { in: constraints.allowedCompanyIds } } },
@@ -63,11 +59,37 @@ async function getDreData(
         })
     }
 
-    // --- Cost Center Filter ---
+    if (constraints?.allowedCostCenterIds?.length) {
+        permissionConditions.push({ costCenterId: { in: constraints.allowedCostCenterIds } })
+    }
+
+    // if (constraints?.allowedSegmentIds?.length) ... (Future)
+
+    // Apply Permissions as a single AND condition containing the ORs
+    // WHERE (CompAllowed OR CCAllowed)
+    if (permissionConditions.length > 0) {
+        andConditions.push({ OR: permissionConditions })
+    }
+
+
+    // --- User Selected Filters (Refining the view) ---
+    // These behave as standard filters (AND)
+
+    // Company Filter
+    if (filters.companyId && filters.companyId !== 'all') {
+        andConditions.push({
+            OR: [
+                { companyId: filters.companyId },
+                { grouping: { companyId: filters.companyId } },
+                { costCenter: { grouping: { companyId: filters.companyId } } },
+                { segment: { grouping: { companyId: filters.companyId } } }
+            ]
+        })
+    }
+
+    // Cost Center Filter
     if (filters.costCenterId && filters.costCenterId !== 'all') {
         andConditions.push({ costCenterId: filters.costCenterId })
-    } else if (constraints?.allowedCostCenterIds?.length) {
-        andConditions.push({ costCenterId: { in: constraints.allowedCostCenterIds } })
     }
 
     // --- Department Filter (Grouping) ---
