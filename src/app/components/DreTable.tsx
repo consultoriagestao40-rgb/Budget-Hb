@@ -449,7 +449,7 @@ export function DreTable({ initialData, tenantId, year, availableCompanies, filt
                                 <option value="CALCULATED">Consolidado (Soma/Pasta)</option>
                             </select>
                             <p className="text-xs text-[var(--warning)] mt-1">
-                                Cuidado: Mudar para 'Calculado' impedirá a edição manual de valores.
+                                Cuidado: Mudar para &apos;Calculado&apos; impedirá a edição manual de valores.
                             </p>
                         </div>
 
