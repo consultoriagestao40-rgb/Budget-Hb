@@ -69,6 +69,9 @@ export async function getDashboardSummary(year: number, versionId?: string) {
         if (allowedCompanyIds.length > 0) entryWhere.OR.push({ companyId: { in: allowedCompanyIds } })
         if (allowedCostCenterIds.length > 0) entryWhere.OR.push({ costCenterId: { in: allowedCostCenterIds } })
         if (allowedGroupingIds.length > 0) entryWhere.OR.push({ groupingId: { in: allowedGroupingIds } })
+    } else if (session.role !== 'ADMIN') {
+        // Non-admin with no permissions -> Deny All
+        entryWhere.id = 'NO_ACCESS'
     }
 
     // 1. Fetch Data with Filters

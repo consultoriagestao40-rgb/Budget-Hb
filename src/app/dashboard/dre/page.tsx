@@ -252,6 +252,17 @@ export default async function DrePage({
         costCenterFilter.id = { in: allowedCostCenterIds }
     }
 
+    // Security Check: Deny if no permissions and not Admin
+    const hasAnyPermission = allowedCompanyIds.length > 0 || allowedCostCenterIds.length > 0
+    if (!hasAnyPermission && user?.role !== 'ADMIN') {
+        // Return empty view immediately
+        return (
+            <div className="flex items-center justify-center h-screen text-[var(--text-secondary)]">
+                Acesso negado. Nenhuma permissão atribuída.
+            </div>
+        )
+    }
+
     // Version Logic
     const budgetVersions = await prisma.budgetVersion.findMany({
         where: { tenantId },

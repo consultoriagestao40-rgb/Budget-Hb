@@ -93,7 +93,7 @@ export async function getUserPermissions(userId: string) {
         include: {
             company: { select: { id: true, name: true } },
             costCenter: { select: { id: true, name: true, code: true } },
-            segment: { select: { id: true, name: true, code: true } }
+            // segment: { select: { id: true, name: true, code: true } }
         }
     })
 }
