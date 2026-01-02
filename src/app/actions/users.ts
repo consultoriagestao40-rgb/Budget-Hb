@@ -145,7 +145,7 @@ export async function updateUserPermissions(
 
                 if (p.type === 'COMPANY') data.companyId = p.entityId
                 if (p.type === 'COST_CENTER') data.costCenterId = p.entityId
-                if (p.type === 'SEGMENT') data.segmentId = p.entityId
+                // if (p.type === 'SEGMENT') data.segmentId = p.entityId
 
                 console.log('Creating permission:', data)
 
