@@ -123,17 +123,18 @@ export function HorizontalFilterBar({
     const getCompanyCode = (id: string | null | undefined) => {
         if (!id) return ''
         const c = companies.find(x => x.id === id)
-        return c?.code || ''
+        return c?.code ? c.code : ''
     }
 
     const getDepartmentCode = (id: string | null | undefined) => {
         if (!id) return ''
         const d = departments.find(x => x.id === id)
-        // If Dept has code, we might want Company.Dept or just Dept.
-        // Usually full hierarchy: Company.Dept
         if (!d) return ''
         const cCode = getCompanyCode(d.companyId)
-        return cCode && d.code ? `${cCode}.${d.code}` : (d.code || '')
+        // Ensure we handle cases where Company Code might be missing but Dept Code exists
+        if (cCode && d.code) return `${cCode}.${d.code}`
+        if (d.code) return d.code
+        return ''
     }
 
     // Prepare Options with Full Codes
@@ -149,6 +150,7 @@ export function HorizontalFilterBar({
         ...cc,
         fullCode: (() => {
             const deptFull = getDepartmentCode(cc.groupingId)
+            // Format: Company.Dept.CostCenterCode
             return deptFull && cc.code ? `${deptFull}.${cc.code}` : cc.code
         })()
     }))
@@ -157,6 +159,7 @@ export function HorizontalFilterBar({
         ...s,
         fullCode: (() => {
             const deptFull = getDepartmentCode(s.groupingId)
+            // Format: Company.Dept.ExpenseCenterCode
             return deptFull && s.code ? `${deptFull}.${s.code}` : s.code
         })()
     }))
