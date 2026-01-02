@@ -33,9 +33,11 @@ interface DreViewProps {
 
     filters: {
         companyId?: string
-        departmentId?: string // NEW
+        departmentId?: string
         costCenterId?: string
         clientId?: string
+        segmentId?: string
+        ccSegmentId?: string
     }
     userRole: string
     userPermissions: any[]

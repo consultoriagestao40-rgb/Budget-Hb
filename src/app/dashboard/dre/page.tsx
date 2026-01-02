@@ -254,7 +254,7 @@ export default async function DrePage({
             cities={cities}
             states={states}
 
-            filters={{ companyId, departmentId, costCenterId, clientId }}
+            filters={{ companyId, departmentId, costCenterId, clientId, segmentId, ccSegmentId }}
             userRole={user?.role || 'USER'}
             userPermissions={permissions}
         />
