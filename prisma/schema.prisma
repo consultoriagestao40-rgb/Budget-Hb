@@ -88,8 +88,8 @@ model UserPermission {
   costCenterId String?
   costCenter   CostCenter? @relation(fields: [costCenterId], references: [id])
 
-  // segmentId    String?
-  // segment      Segment?   @relation(fields: [segmentId], references: [id])
+  segmentId    String?
+  segment      Segment?   @relation(fields: [segmentId], references: [id])
 
   canView   Boolean @default(true)
   canEdit   Boolean @default(false)
