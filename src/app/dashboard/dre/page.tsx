@@ -250,19 +250,39 @@ export default async function DrePage({
     const tenantId = session.tenantId
 
     // Get User Permissions
-    const user = await prisma.user.findUnique({
-        where: { id: session.userId },
-        include: {
-            permissions: {
-                select: {
-                    companyId: true,
-                    costCenterId: true,
-                    segmentId: true,
-                    canView: true
+    // Get User Permissions with Defensive Fallback
+    let user;
+    try {
+        user = await prisma.user.findUnique({
+            where: { id: session.userId },
+            include: {
+                permissions: {
+                    select: {
+                        companyId: true,
+                        costCenterId: true,
+                        segmentId: true,
+                        canView: true
+                    }
                 }
             }
-        }
-    })
+        })
+    } catch (error) {
+        console.error("Error fetching permissions with segmentId in DRE:", error)
+        // Fallback: Fetch without segmentId if schema mismatch occurs
+        user = await prisma.user.findUnique({
+            where: { id: session.userId },
+            include: {
+                permissions: {
+                    select: {
+                        companyId: true,
+                        costCenterId: true,
+                        // segmentId omitted
+                        canView: true
+                    }
+                }
+            }
+        })
+    }
 
     // @ts-ignore - Prisma include inference
     const permissions = user?.permissions || []
