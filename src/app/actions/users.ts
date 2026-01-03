@@ -134,6 +134,7 @@ export async function updateUserPermissions(
 
     let successCount = 0
     let failureCount = 0
+    let lastError = ''
 
     await prisma.$transaction(async (tx) => {
         // 1. Delete all existing permissions for this user
@@ -167,6 +168,7 @@ export async function updateUserPermissions(
                 } catch (e: any) {
                     console.error('   Error creating permission:', e)
                     failureCount++
+                    lastError = e.message || String(e)
                 }
             }
         } else {
@@ -175,5 +177,5 @@ export async function updateUserPermissions(
     })
 
     revalidatePath('/dashboard/settings')
-    return { success: true, saved: successCount, failed: failureCount }
+    return { success: true, saved: successCount, failed: failureCount, lastError }
 }

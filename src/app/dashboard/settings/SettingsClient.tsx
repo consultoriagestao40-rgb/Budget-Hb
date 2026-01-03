@@ -201,7 +201,7 @@ export function SettingsClient({
             const result = await updateUserPermissions(permissionUser.id, permissions)
             if (result.success) {
                 if (result.failed && result.failed > 0) {
-                    alert(`Aviso: ${result.saved} permissões salvas, mas ${result.failed} falharam. Verifique os logs do servidor.`)
+                    alert(`Aviso: ${result.saved} permissões salvas, mas ${result.failed} falharam.\nErro: ${result.lastError}`)
                 } else {
                     alert(`Sucesso! ${result.saved} permissões atualizadas.`)
                 }
