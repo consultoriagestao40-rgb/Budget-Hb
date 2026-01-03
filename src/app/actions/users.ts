@@ -94,9 +94,9 @@ export async function getUserPermissions(userId: string) {
                 where: { userId },
                 include: {
                     company: { select: { id: true, name: true } },
-                    costCenter: { select: { id: true, name: true, code: true } }
-                    // segment excluded
-                }
+                    costCenter: { select: { id: true, name: true, code: true } },
+                    segment: { select: { id: true, name: true, code: true } }
+                } as any,
             })
         } catch (error) {
             console.error('Error fetching permissions with segments (Schema mismatch?):', error)
@@ -170,8 +170,8 @@ export async function updateUserPermissions(
 
             if (p.type === 'COMPANY') data.companyId = p.entityId
             if (p.type === 'COST_CENTER') data.costCenterId = p.entityId
-            // Segment logic removed to prevent DB error
-            // if (p.type === 'SEGMENT') data.segmentId = p.entityId
+            // Segment logic enabled
+            if (p.type === 'SEGMENT') data.segmentId = p.entityId
 
             try {
                 // Using prisma.userPermission (global client), NOT tx.

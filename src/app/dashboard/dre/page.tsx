@@ -260,7 +260,7 @@ export default async function DrePage({
                     select: {
                         companyId: true,
                         costCenterId: true,
-                        // segmentId: true,
+                        segmentId: true,
                         canView: true
                     }
                 }
@@ -292,7 +292,7 @@ export default async function DrePage({
 
     const allowedCompanyIds = permissions.filter((p: any) => p.companyId).map((p: any) => p.companyId!)
     const allowedCostCenterIds = permissions.filter((p: any) => p.costCenterId).map((p: any) => p.costCenterId!)
-    const allowedSegmentIds: string[] = [] // permissions.filter((p: any) => p.segmentId).map((p: any) => p.segmentId!)
+    const allowedSegmentIds = permissions.filter((p: any) => p.segmentId).map((p: any) => p.segmentId!)
 
     const companyFilter: any = { tenantId }
     if (allowedCompanyIds.length > 0) {
@@ -334,7 +334,7 @@ export default async function DrePage({
     const effectiveYear = Math.min(Math.max(currentYear, tMin), tMax)
 
     // 2. Fetch Data using SAFE effectiveYear
-    const [data, companies, costCenters, clients, segments, ccSegments, cities, departments] = await Promise.all([
+    let [data, companies, costCenters, clients, segments, ccSegments, cities, departments] = await Promise.all([
         getDreData(tenantId, effectiveYear, {
             companyId, costCenterId, clientId, versionId: activeVersionId,
             segmentId, ccSegmentId, departmentId, cityId, state
@@ -351,6 +351,19 @@ export default async function DrePage({
         prisma.city.findMany({ where: { tenantId } }),
         prisma.grouping.findMany({ where: { tenantId } }), // Departments
     ])
+
+    // SECURITY: Limit Lines for Non-Admins
+    if (user?.role !== 'ADMIN') {
+        // Universal Rule: Show lines 1 to 7 (Operational). Hide 8+ (Financial/Result)
+        // Adjust logic based on your specific DRE structure.
+        // Assuming Order based: 1, 2, 3, 4, 5, 6, 7.
+        // We filter out anything with order >= 8 or specific codes.
+        data = data.filter(row => {
+            // Keep if no order (header?) or order < 8
+            if (!row.order) return true
+            return row.order < 8
+        })
+    }
 
     // Extract unique states
     const states = Array.from(new Set(cities.filter(c => c.state).map(c => c.state!))).sort()
