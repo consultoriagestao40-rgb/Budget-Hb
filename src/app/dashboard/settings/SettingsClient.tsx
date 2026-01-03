@@ -245,9 +245,9 @@ export function SettingsClient({
 
     return (
         <div className="space-y-6">
-            <h1 className="text-2xl font-bold text-[var(--text-primary)]">Configurações do Sistema</h1>
+            <h2 className="text-xl font-bold mb-4 text-[var(--text-primary)]">Gerenciar Usuários (v2.2 Safe Mode)</h2>
 
-            {/* Tabs */}
+            {/* User List */}
             <div className="flex border-b border-[var(--border-subtle)] overflow-x-auto custom-scrollbar">
                 <TabButton active={activeTab === 'companies'} onClick={() => setActiveTab('companies')} label="Empresas" />
                 <TabButton active={activeTab === 'costCenters'} onClick={() => setActiveTab('costCenters')} label="CCs" />
@@ -632,7 +632,7 @@ export function SettingsClient({
                                         </div>
                                     </div>
 
-                                    {/* Segments (Expense Centers) */}
+                                    {/* Segments (Expense Centers) - DISABLED: Database Mismatch (Missing Column)
                                     <div>
                                         <h3 className="font-bold text-[var(--text-primary)] mb-2 mt-4 bg-[var(--bg-main)]/50 p-2 rounded backdrop-blur border border-[var(--border-subtle)] sticky top-0">
                                             Centros de Despesa ({initialExpenseCenters.length})
@@ -669,6 +669,7 @@ export function SettingsClient({
                                             })}
                                         </div>
                                     </div>
+                                    */}
                                 </>
                             )}
                         </div>
