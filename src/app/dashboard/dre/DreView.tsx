@@ -154,6 +154,7 @@ export function DreView({
                 ccSegments={ccSegments}
                 cities={cities}
                 states={states}
+                userRole={userRole}
             />
 
             {/* Main Content Wrapper - strictly constrained */}
