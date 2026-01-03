@@ -359,7 +359,7 @@ export default async function DrePage({
         <DreView
             initialData={data}
             tenantId={tenantId}
-            dreTitle={tenant?.dreTitle || "Demonstrativo de Resultados (DRE)"}
+            dreTitle={(tenant?.dreTitle || "Demonstrativo de Resultados (DRE)") + (segmentId ? ` [Seg: ${segmentId.substring(0, 4)}]` : '')}
             currentYear={effectiveYear} // Pass effective year
             versions={budgetVersions}
             currentVersionId={activeVersionId}
