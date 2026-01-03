@@ -290,9 +290,9 @@ export default async function DrePage({
     // @ts-ignore - Prisma include inference
     const permissions = userTyped?.permissions || []
 
-    const allowedCompanyIds = permissions.filter(p => p.companyId).map(p => p.companyId!)
-    const allowedCostCenterIds = permissions.filter(p => p.costCenterId).map(p => p.costCenterId!)
-    const allowedSegmentIds = permissions.filter(p => p.segmentId).map(p => p.segmentId!)
+    const allowedCompanyIds = permissions.filter((p: any) => p.companyId).map((p: any) => p.companyId!)
+    const allowedCostCenterIds = permissions.filter((p: any) => p.costCenterId).map((p: any) => p.costCenterId!)
+    const allowedSegmentIds = permissions.filter((p: any) => p.segmentId).map((p: any) => p.segmentId!)
 
     const companyFilter: any = { tenantId }
     if (allowedCompanyIds.length > 0) {
