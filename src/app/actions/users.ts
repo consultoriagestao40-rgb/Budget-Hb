@@ -94,9 +94,9 @@ export async function getUserPermissions(userId: string) {
                 where: { userId },
                 include: {
                     company: { select: { id: true, name: true } },
-                    costCenter: { select: { id: true, name: true, code: true } },
-                    segment: { select: { id: true, name: true, code: true } }
-                } as any // Bypass TS error for segment include
+                    costCenter: { select: { id: true, name: true, code: true } }
+                    // segment: { select: { id: true, name: true, code: true } } // DISABLED
+                }
             })
         } catch (error) {
             console.error('Error fetching permissions with segments (Schema mismatch?):', error)
@@ -166,7 +166,13 @@ export async function updateUserPermissions(
 
                 if (p.type === 'COMPANY') data.companyId = p.entityId
                 if (p.type === 'COST_CENTER') data.costCenterId = p.entityId
-                if (p.type === 'SEGMENT') data.segmentId = p.entityId
+                // if (p.type === 'SEGMENT') data.segmentId = p.entityId // DISABLED: Schema mismatch
+
+                // Skip SEGMENT permissions to prevent crash
+                if (p.type === 'SEGMENT') {
+                    console.warn('Skipping SEGMENT permission due to schema disablement')
+                    continue
+                }
 
                 console.log('Creating permission:', data)
 
