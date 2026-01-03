@@ -89,30 +89,17 @@ export async function getUserPermissions(userId: string) {
         const session = await getSession()
         await checkAdmin(session)
 
-        try {
-            return await prisma.userPermission.findMany({
-                where: { userId },
-                include: {
-                    company: { select: { id: true, name: true } },
-                    costCenter: { select: { id: true, name: true, code: true } },
-                    segment: { select: { id: true, name: true, code: true } }
-                } as any,
-            })
-        } catch (error) {
-            console.error('Error fetching permissions with segments (Schema mismatch?):', error)
-            // Fallback: Fetch without 'segment' include if the column is missing/broken
-            return await prisma.userPermission.findMany({
-                where: { userId },
-                include: {
-                    company: { select: { id: true, name: true } },
-                    costCenter: { select: { id: true, name: true, code: true } }
-                    // segment excluded in fallback
-                }
-            })
-        }
-    } catch (e) {
-        console.error('CRITICAL ERROR in getUserPermissions:', e)
-        return [] // Return empty array to prevent UI crash (500)
+        return await prisma.userPermission.findMany({
+            where: { userId },
+            include: {
+                company: { select: { id: true, name: true } },
+                costCenter: { select: { id: true, name: true, code: true } }
+                // segment excluded in fallback
+            }
+        })
+    } catch (error) {
+        console.error('Error fetching permissions:', error)
+        return []
     }
 }
 
@@ -158,11 +145,8 @@ export async function updateUserPermissions(
         if (permissions.length > 0) {
             console.log('2. Creating new permissions. Count:', permissions.length)
             for (const p of permissions) {
-                // Skip SEGMENT permissions explicitly (for Standard transaction)
-                if (p.type === 'SEGMENT') {
-                    console.log('   Skipping SEGMENT permission:', p.entityId)
-                    continue
-                }
+                // Skip SEGMENT permissions explicitly (DB Mismatch)
+                if (p.type === 'SEGMENT') continue
 
                 const data: any = {
                     userId,
@@ -174,6 +158,7 @@ export async function updateUserPermissions(
 
                 if (p.type === 'COMPANY') data.companyId = p.entityId
                 if (p.type === 'COST_CENTER') data.costCenterId = p.entityId
+                // if (p.type === 'SEGMENT') data.segmentId = p.entityId // DISABLED
 
                 try {
                     console.log('   Creating permission:', JSON.stringify(data))
@@ -188,32 +173,6 @@ export async function updateUserPermissions(
             console.log('2. No permissions to create (empty list provided)')
         }
     })
-
-    // 3. Attempt to save SEGMENT permissions in a separate "Best Effort" block
-    const segmentPermissions = permissions.filter(p => p.type === 'SEGMENT')
-    if (segmentPermissions.length > 0) {
-        console.log('3. Attempting to save SEGMENT permissions. Count:', segmentPermissions.length)
-        for (const p of segmentPermissions) {
-            try {
-                const data: any = {
-                    userId,
-                    canView: !!p.canView,
-                    canEdit: !!p.canEdit,
-                    canCreate: !!p.canCreate,
-                    canDelete: !!p.canDelete,
-                    segmentId: p.entityId
-                }
-                console.log('   Creating SEGMENT permission:', JSON.stringify(data))
-                await prisma.userPermission.create({ data })
-                successCount++
-            } catch (e: any) {
-                console.error('   Error creating SEGMENT permission:', e)
-                failureCount++
-            }
-        }
-    } else {
-        console.log('3. No SEGMENT permissions to save.')
-    }
 
     revalidatePath('/dashboard/settings')
     return { success: true, saved: successCount, failed: failureCount }
