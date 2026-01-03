@@ -634,7 +634,9 @@ export function SettingsClient({
 
                                     {/* Segments (Expense Centers) */}
                                     <div>
-                                        <h3 className="font-bold text-[var(--text-primary)] mb-2 mt-4 bg-[var(--bg-main)]/50 p-2 rounded backdrop-blur border border-[var(--border-subtle)] sticky top-0">Centros de Despesa</h3>
+                                        <h3 className="font-bold text-[var(--text-primary)] mb-2 mt-4 bg-[var(--bg-main)]/50 p-2 rounded backdrop-blur border border-[var(--border-subtle)] sticky top-0">
+                                            Centros de Despesa ({initialExpenseCenters.length})
+                                        </h3>
                                         <div className="space-y-1">
                                             {initialExpenseCenters.map(seg => {
                                                 const perm = permissions.find(p => p.type === 'SEGMENT' && p.entityId === seg.id)
