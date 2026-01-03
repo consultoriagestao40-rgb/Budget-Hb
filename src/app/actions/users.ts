@@ -94,9 +94,9 @@ export async function getUserPermissions(userId: string) {
                 where: { userId },
                 include: {
                     company: { select: { id: true, name: true } },
-                    costCenter: { select: { id: true, name: true, code: true } },
-                    segment: { select: { id: true, name: true, code: true } }
-                } as any,
+                    costCenter: { select: { id: true, name: true, code: true } }
+                    // segment excluded
+                }
             })
         } catch (error) {
             console.error('Error fetching permissions with segments (Schema mismatch?):', error)
@@ -149,71 +149,43 @@ export async function updateUserPermissions(
     let failureCount = 0
     let lastError = ''
 
-    await prisma.$transaction(async (tx) => {
-        // 1. Delete all existing permissions for this user
-        console.log('1. Deleting existing permissions for userId:', userId)
-        const deleted = await tx.userPermission.deleteMany({ where: { userId } })
-        console.log('   Deleted count:', deleted.count)
+    // 1. Delete all existing permissions for this user
+    console.log('1. Deleting existing permissions for userId:', userId)
+    // We can keep delete in a transaction if we want, or just await it. 
+    // Delete failure IS critical, so we should fail fast.
+    const deleted = await prisma.userPermission.deleteMany({ where: { userId } })
+    console.log('   Deleted count:', deleted.count)
 
-        // 2. Create new permissions
-        if (permissions.length > 0) {
-            console.log('2. Creating new permissions. Count:', permissions.length)
-            for (const p of permissions) {
-                // Skip SEGMENT permissions to separate loop
-                if (p.type === 'SEGMENT') continue
-
-                const data: any = {
-                    userId,
-                    canView: !!p.canView,
-                    canEdit: !!p.canEdit,
-                    canCreate: !!p.canCreate,
-                    canDelete: !!p.canDelete
-                }
-
-                if (p.type === 'COMPANY') data.companyId = p.entityId
-                if (p.type === 'COST_CENTER') data.costCenterId = p.entityId
-
-                try {
-                    console.log('   Creating permission:', JSON.stringify(data))
-                    await tx.userPermission.create({ data })
-                    successCount++
-                } catch (e: any) {
-                    console.error('   Error creating permission:', e)
-                    failureCount++
-                    lastError = e.message || String(e)
-                }
+    // 2. Create new permissions
+    if (permissions.length > 0) {
+        console.log('2. Creating new permissions. Count:', permissions.length)
+        for (const p of permissions) {
+            const data: any = {
+                userId,
+                canView: !!p.canView,
+                canEdit: !!p.canEdit,
+                canCreate: !!p.canCreate,
+                canDelete: !!p.canDelete
             }
-        } else {
-            console.log('2. No non-segment permissions to create (empty list provided)')
-        }
-    })
 
-    // 3. Attempt to save SEGMENT permissions in a separate "Best Effort" block
-    const segmentPermissions = permissions.filter(p => p.type === 'SEGMENT')
-    if (segmentPermissions.length > 0) {
-        console.log('3. Attempting to save SEGMENT permissions. Count:', segmentPermissions.length)
-        for (const p of segmentPermissions) {
+            if (p.type === 'COMPANY') data.companyId = p.entityId
+            if (p.type === 'COST_CENTER') data.costCenterId = p.entityId
+            if (p.type === 'SEGMENT') data.segmentId = p.entityId
+
             try {
-                const data: any = {
-                    userId,
-                    canView: !!p.canView,
-                    canEdit: !!p.canEdit,
-                    canCreate: !!p.canCreate,
-                    canDelete: !!p.canDelete,
-                    segmentId: p.entityId
-                }
-                console.log('   Creating SEGMENT permission:', JSON.stringify(data))
+                // Using prisma.userPermission (global client), NOT tx.
+                console.log('   Creating permission:', JSON.stringify(data))
                 await prisma.userPermission.create({ data })
                 successCount++
             } catch (e: any) {
-                console.error('   Error creating SEGMENT permission:', e)
+                console.error('   Error creating permission:', e)
                 failureCount++
-                // Don't overwrite main 'lastError' if standard perms succeeded, but maybe log it?
-                if (!lastError) lastError = `Seg: ${e.message}`
+                // Capture the specific error for the first failure
+                if (!lastError) lastError = e.message || String(e)
             }
         }
     } else {
-        console.log('3. No SEGMENT permissions to create (empty list provided)')
+        console.log('2. No permissions to create (empty list provided)')
     }
 
     revalidatePath('/dashboard/settings')
