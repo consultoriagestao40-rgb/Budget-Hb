@@ -198,13 +198,17 @@ export function SettingsClient({
         if (!permissionUser) return
         setIsSavingPerms(true)
         try {
-            const result = await updateUserPermissions(permissionUser.id, permissions) as any
-            if (result && result.failed > 0) {
-                alert(`Aviso: ${result.saved} permissões salvas, mas ${result.failed} falharam (provavelmente Centros de Despesa). O banco de dados está atualizando.`)
+            const result = await updateUserPermissions(permissionUser.id, permissions)
+            if (result.success) {
+                if (result.failed && result.failed > 0) {
+                    alert(`Aviso: ${result.saved} permissões salvas, mas ${result.failed} falharam. Verifique os logs do servidor.`)
+                } else {
+                    alert(`Sucesso! ${result.saved} permissões atualizadas.`)
+                }
+                setPermissionUser(null) // Assuming setPermissionUser(null) is the equivalent of closing the permission modal/view
             } else {
-                alert('Permissões atualizadas com sucesso!')
+                alert('Falha ao salvar permissões. Tente novamente.')
             }
-            setPermissionUser(null)
         } catch (e: any) {
             alert('Erro: ' + e.message)
         } finally {

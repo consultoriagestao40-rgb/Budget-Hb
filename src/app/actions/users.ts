@@ -150,13 +150,19 @@ export async function updateUserPermissions(
 
     await prisma.$transaction(async (tx) => {
         // 1. Delete all existing permissions for this user
-        await tx.userPermission.deleteMany({ where: { userId } })
+        console.log('1. Deleting existing permissions for userId:', userId)
+        const deleted = await tx.userPermission.deleteMany({ where: { userId } })
+        console.log('   Deleted count:', deleted.count)
 
         // 2. Create new permissions
         if (permissions.length > 0) {
+            console.log('2. Creating new permissions. Count:', permissions.length)
             for (const p of permissions) {
                 // Skip SEGMENT permissions explicitly (Legacy/UI artifact protection)
-                if (p.type === 'SEGMENT') continue
+                if (p.type === 'SEGMENT') {
+                    console.log('   Skipping SEGMENT permission:', p.entityId)
+                    continue
+                }
 
                 const data: any = {
                     userId,
@@ -170,13 +176,16 @@ export async function updateUserPermissions(
                 if (p.type === 'COST_CENTER') data.costCenterId = p.entityId
 
                 try {
+                    console.log('   Creating permission:', JSON.stringify(data))
                     await tx.userPermission.create({ data })
                     successCount++
                 } catch (e: any) {
-                    console.error('Error creating permission:', e)
+                    console.error('   Error creating permission:', e)
                     failureCount++
                 }
             }
+        } else {
+            console.log('2. No permissions to create (empty list provided)')
         }
     })
 
