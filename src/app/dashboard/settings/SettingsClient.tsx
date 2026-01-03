@@ -245,7 +245,7 @@ export function SettingsClient({
 
     return (
         <div className="space-y-6">
-            <h2 className="text-xl font-bold mb-4 text-[var(--text-primary)]">Gerenciar Usuários (v2.2 Safe Mode)</h2>
+            <h2 className="text-xl font-bold mb-4 text-[var(--text-primary)]">Gerenciar Usuários</h2>
 
             {/* User List */}
             <div className="flex border-b border-[var(--border-subtle)] overflow-x-auto custom-scrollbar">
