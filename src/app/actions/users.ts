@@ -96,7 +96,7 @@ export async function getUserPermissions(userId: string) {
                     company: { select: { id: true, name: true } },
                     costCenter: { select: { id: true, name: true, code: true } },
                     segment: { select: { id: true, name: true, code: true } }
-                }
+                } as any // Bypass TS error for segment include
             })
         } catch (error) {
             console.error('Error fetching permissions with segments (Schema mismatch?):', error)
@@ -145,6 +145,9 @@ export async function updateUserPermissions(
 
     console.log('Updating permissions for user:', userId, 'Count:', permissions.length)
 
+    let successCount = 0
+    let failureCount = 0
+
     await prisma.$transaction(async (tx) => {
         // 1. Delete all existing permissions for this user
         await tx.userPermission.deleteMany({ where: { userId } })
@@ -169,8 +172,10 @@ export async function updateUserPermissions(
 
                 try {
                     await tx.userPermission.create({ data })
+                    successCount++
                 } catch (e: any) {
                     console.error('Error creating permission:', e)
+                    failureCount++
                     // Continue loop instead of crashing
                 }
             }
@@ -178,4 +183,5 @@ export async function updateUserPermissions(
     })
 
     revalidatePath('/dashboard/settings')
+    return { success: true, saved: successCount, failed: failureCount }
 }

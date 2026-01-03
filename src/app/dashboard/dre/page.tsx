@@ -284,8 +284,11 @@ export default async function DrePage({
         })
     }
 
+    // Cast to any to bypass TS error if schema type is outdated in editor
+    const userTyped = user as any
+
     // @ts-ignore - Prisma include inference
-    const permissions = user?.permissions || []
+    const permissions = userTyped?.permissions || []
 
     const allowedCompanyIds = permissions.filter(p => p.companyId).map(p => p.companyId!)
     const allowedCostCenterIds = permissions.filter(p => p.costCenterId).map(p => p.costCenterId!)

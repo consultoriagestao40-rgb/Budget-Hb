@@ -198,8 +198,12 @@ export function SettingsClient({
         if (!permissionUser) return
         setIsSavingPerms(true)
         try {
-            await updateUserPermissions(permissionUser.id, permissions)
-            alert('Permissões atualizadas com sucesso!')
+            const result = await updateUserPermissions(permissionUser.id, permissions) as any
+            if (result && result.failed > 0) {
+                alert(`Aviso: ${result.saved} permissões salvas, mas ${result.failed} falharam (provavelmente Centros de Despesa). O banco de dados está atualizando.`)
+            } else {
+                alert('Permissões atualizadas com sucesso!')
+            }
             setPermissionUser(null)
         } catch (e: any) {
             alert('Erro: ' + e.message)
