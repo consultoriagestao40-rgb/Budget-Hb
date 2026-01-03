@@ -355,13 +355,11 @@ export default async function DrePage({
     // SECURITY: Limit Lines for Non-Admins
     if (user?.role !== 'ADMIN') {
         // Universal Rule: Show lines 1 to 7 (Operational). Hide 8+ (Financial/Result)
-        // Adjust logic based on your specific DRE structure.
-        // Assuming Order based: 1, 2, 3, 4, 5, 6, 7.
-        // We filter out anything with order >= 8 or specific codes.
         data = data.filter(row => {
-            // Keep if no order (header?) or order < 8
-            if (!row.order) return true
-            return row.order < 8
+            if (!row.code) return true // Headers?
+            // Parse first part of code (e.g., "7.1" -> 7)
+            const mainGroup = parseInt(row.code.split('.')[0], 10)
+            return !isNaN(mainGroup) && mainGroup < 8
         })
     }
 
