@@ -94,9 +94,9 @@ export async function getUserPermissions(userId: string) {
                 where: { userId },
                 include: {
                     company: { select: { id: true, name: true } },
-                    costCenter: { select: { id: true, name: true, code: true } }
-                    // segment excluded
-                }
+                    costCenter: { select: { id: true, name: true, code: true } },
+                    segment: { select: { id: true, name: true, code: true } }
+                } as any,
             })
         } catch (error) {
             console.error('Error fetching permissions with segments (Schema mismatch?):', error)
@@ -159,6 +159,9 @@ export async function updateUserPermissions(
         if (permissions.length > 0) {
             console.log('2. Creating new permissions. Count:', permissions.length)
             for (const p of permissions) {
+                // Skip SEGMENT permissions to separate loop
+                if (p.type === 'SEGMENT') continue
+
                 const data: any = {
                     userId,
                     canView: !!p.canView,
@@ -181,9 +184,37 @@ export async function updateUserPermissions(
                 }
             }
         } else {
-            console.log('2. No permissions to create (empty list provided)')
+            console.log('2. No non-segment permissions to create (empty list provided)')
         }
     })
+
+    // 3. Attempt to save SEGMENT permissions in a separate "Best Effort" block
+    const segmentPermissions = permissions.filter(p => p.type === 'SEGMENT')
+    if (segmentPermissions.length > 0) {
+        console.log('3. Attempting to save SEGMENT permissions. Count:', segmentPermissions.length)
+        for (const p of segmentPermissions) {
+            try {
+                const data: any = {
+                    userId,
+                    canView: !!p.canView,
+                    canEdit: !!p.canEdit,
+                    canCreate: !!p.canCreate,
+                    canDelete: !!p.canDelete,
+                    segmentId: p.entityId
+                }
+                console.log('   Creating SEGMENT permission:', JSON.stringify(data))
+                await prisma.userPermission.create({ data })
+                successCount++
+            } catch (e: any) {
+                console.error('   Error creating SEGMENT permission:', e)
+                failureCount++
+                // Don't overwrite main 'lastError' if standard perms succeeded, but maybe log it?
+                if (!lastError) lastError = `Seg: ${e.message}`
+            }
+        }
+    } else {
+        console.log('3. No SEGMENT permissions to create (empty list provided)')
+    }
 
     revalidatePath('/dashboard/settings')
     return { success: true, saved: successCount, failed: failureCount, lastError }
