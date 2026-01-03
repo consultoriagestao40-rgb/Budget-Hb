@@ -260,7 +260,7 @@ export default async function DrePage({
                     select: {
                         companyId: true,
                         costCenterId: true,
-                        segmentId: true,
+                        // segmentId: true,
                         canView: true
                     }
                 }
@@ -292,7 +292,7 @@ export default async function DrePage({
 
     const allowedCompanyIds = permissions.filter((p: any) => p.companyId).map((p: any) => p.companyId!)
     const allowedCostCenterIds = permissions.filter((p: any) => p.costCenterId).map((p: any) => p.costCenterId!)
-    const allowedSegmentIds = permissions.filter((p: any) => p.segmentId).map((p: any) => p.segmentId!)
+    const allowedSegmentIds: string[] = [] // permissions.filter((p: any) => p.segmentId).map((p: any) => p.segmentId!)
 
     const companyFilter: any = { tenantId }
     if (allowedCompanyIds.length > 0) {

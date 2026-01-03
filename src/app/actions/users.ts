@@ -94,9 +94,9 @@ export async function getUserPermissions(userId: string) {
                 where: { userId },
                 include: {
                     company: { select: { id: true, name: true } },
-                    costCenter: { select: { id: true, name: true, code: true } },
-                    segment: { select: { id: true, name: true, code: true } }
-                } as any,
+                    costCenter: { select: { id: true, name: true, code: true } }
+                    // segment excluded
+                }
             })
         } catch (error) {
             console.error('Error fetching permissions with segments (Schema mismatch?):', error)
@@ -159,12 +159,6 @@ export async function updateUserPermissions(
         if (permissions.length > 0) {
             console.log('2. Creating new permissions. Count:', permissions.length)
             for (const p of permissions) {
-                // Skip SEGMENT permissions explicitly (for Standard transaction)
-                if (p.type === 'SEGMENT') {
-                    console.log('   Skipping SEGMENT permission:', p.entityId)
-                    continue
-                }
-
                 const data: any = {
                     userId,
                     canView: !!p.canView,
@@ -175,7 +169,6 @@ export async function updateUserPermissions(
 
                 if (p.type === 'COMPANY') data.companyId = p.entityId
                 if (p.type === 'COST_CENTER') data.costCenterId = p.entityId
-                // if (p.type === 'SEGMENT') data.segmentId = p.entityId // DISABLED
 
                 try {
                     console.log('   Creating permission:', JSON.stringify(data))
