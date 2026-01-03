@@ -203,13 +203,6 @@ export function HorizontalFilterBar({
                     options={companies}
                 />
                 <FilterSelect
-                    label="Departamento"
-                    value={currentFilters.departmentId}
-                    onChange={v => handleFilterChange('departmentId', v)}
-                    options={preparedDepartments}
-                    disabled={filteredDepartments.length === 0}
-                />
-                <FilterSelect
                     label="Centro de Custo"
                     value={currentFilters.costCenterId}
                     onChange={v => handleFilterChange('costCenterId', v)}
@@ -227,6 +220,15 @@ export function HorizontalFilterBar({
                 {/* Advanced Filters - Admin Only */}
                 {showAdvanced && (
                     <>
+                        {/* Moved Department Here */}
+                        <FilterSelect
+                            label="Departamento"
+                            value={currentFilters.departmentId}
+                            onChange={v => handleFilterChange('departmentId', v)}
+                            options={preparedDepartments}
+                            disabled={filteredDepartments.length === 0}
+                        />
+
                         <FilterSelect
                             label="Seguimento"
                             value={currentFilters.ccSegmentId}
