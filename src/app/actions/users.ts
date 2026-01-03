@@ -89,14 +89,27 @@ export async function getUserPermissions(userId: string) {
         const session = await getSession()
         await checkAdmin(session)
 
-        return await prisma.userPermission.findMany({
-            where: { userId },
-            include: {
-                company: { select: { id: true, name: true } },
-                costCenter: { select: { id: true, name: true, code: true } }
-                // segment excluded in fallback
-            }
-        })
+        try {
+            return await prisma.userPermission.findMany({
+                where: { userId },
+                include: {
+                    company: { select: { id: true, name: true } },
+                    costCenter: { select: { id: true, name: true, code: true } },
+                    segment: { select: { id: true, name: true, code: true } }
+                } as any,
+            })
+        } catch (error) {
+            console.error('Error fetching permissions with segments (Schema mismatch?):', error)
+            // Fallback: Fetch without 'segment' include if the column is missing/broken
+            return await prisma.userPermission.findMany({
+                where: { userId },
+                include: {
+                    company: { select: { id: true, name: true } },
+                    costCenter: { select: { id: true, name: true, code: true } }
+                    // segment excluded in fallback
+                }
+            })
+        }
     } catch (error) {
         console.error('Error fetching permissions:', error)
         return []
@@ -146,8 +159,11 @@ export async function updateUserPermissions(
         if (permissions.length > 0) {
             console.log('2. Creating new permissions. Count:', permissions.length)
             for (const p of permissions) {
-                // Skip SEGMENT permissions explicitly (DB Mismatch)
-                if (p.type === 'SEGMENT') continue
+                // Skip SEGMENT permissions explicitly (for Standard transaction)
+                if (p.type === 'SEGMENT') {
+                    console.log('   Skipping SEGMENT permission:', p.entityId)
+                    continue
+                }
 
                 const data: any = {
                     userId,
