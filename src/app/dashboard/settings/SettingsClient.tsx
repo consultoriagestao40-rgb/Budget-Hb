@@ -628,7 +628,7 @@ export function SettingsClient({
                                         </div>
                                     </div>
 
-                                    {/* Segments (Expense Centers) */}
+                                    {/* Segments (Expense Centers) - DISABLED: Database Mismatch (Missing Column)
                                     <div>
                                         <h3 className="font-bold text-[var(--text-primary)] mb-2 mt-4 bg-[var(--bg-main)]/50 p-2 rounded backdrop-blur border border-[var(--border-subtle)] sticky top-0">Centros de Despesa</h3>
                                         <div className="space-y-1">
@@ -663,6 +663,7 @@ export function SettingsClient({
                                             })}
                                         </div>
                                     </div>
+                                    */}
                                 </>
                             )}
                         </div>

@@ -94,9 +94,9 @@ export async function getUserPermissions(userId: string) {
                 where: { userId },
                 include: {
                     company: { select: { id: true, name: true } },
-                    costCenter: { select: { id: true, name: true, code: true } },
-                    segment: { select: { id: true, name: true, code: true } }
-                } as any // Bypass TS error for segment include
+                    costCenter: { select: { id: true, name: true, code: true } }
+                    // segment: { select: { id: true, name: true, code: true } }
+                }
             })
         } catch (error) {
             console.error('Error fetching permissions with segments (Schema mismatch?):', error)
@@ -150,13 +150,12 @@ export async function updateUserPermissions(
 
     await prisma.$transaction(async (tx) => {
         // 1. Delete all existing permissions for this user
-        // We delete everything to ensure a clean slate based on the UI state
         await tx.userPermission.deleteMany({ where: { userId } })
 
-        // 2. Create STANDARD permissions (Company, CostCenter) - DO NOT FAIL
+        // 2. Create new permissions
         if (permissions.length > 0) {
             for (const p of permissions) {
-                // Skip Segments in this primary loop
+                // Skip SEGMENT permissions explicitly (Legacy/UI artifact protection)
                 if (p.type === 'SEGMENT') continue
 
                 const data: any = {
@@ -174,39 +173,12 @@ export async function updateUserPermissions(
                     await tx.userPermission.create({ data })
                     successCount++
                 } catch (e: any) {
-                    console.error('Error creating standard permission:', e)
+                    console.error('Error creating permission:', e)
                     failureCount++
-                    // We probably should rethrow here if standard perms fail, 
-                    // but for robustness we continue and report failure.
                 }
             }
         }
     })
-
-    // 3. Attempt to save SEGMENT permissions in a separate "Best Effort" block
-    // This is outside the main transaction so it doesn't rollback the critical permissions if it fails (e.g. schema mismatch)
-    const segmentPermissions = permissions.filter(p => p.type === 'SEGMENT')
-    if (segmentPermissions.length > 0) {
-        console.log('Attempting to save SEGMENT permissions...', segmentPermissions.length)
-        for (const p of segmentPermissions) {
-            try {
-                const data: any = {
-                    userId,
-                    canView: !!p.canView,
-                    canEdit: !!p.canEdit,
-                    canCreate: !!p.canCreate,
-                    canDelete: !!p.canDelete,
-                    segmentId: p.entityId // This line might throw if DB column is missing
-                }
-                await prisma.userPermission.create({ data })
-                successCount++
-            } catch (e: any) {
-                console.error('Error creating SEGMENT permission (Schema mismatch?):', e)
-                failureCount++
-                // Detect specific schema error to warn user?
-            }
-        }
-    }
 
     revalidatePath('/dashboard/settings')
     return { success: true, saved: successCount, failed: failureCount }
