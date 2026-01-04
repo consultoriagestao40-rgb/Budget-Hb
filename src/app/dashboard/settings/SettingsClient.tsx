@@ -459,6 +459,16 @@ export function SettingsClient({
                     {activeTab === 'users' ? (
                         <>
                             <div>
+                                <label className="block text-sm font-medium mb-1">Nome *</label>
+                                <input
+                                    type="text"
+                                    value={formData.name}
+                                    onChange={e => setFormData({ ...formData, name: e.target.value })}
+                                    className="input-outline"
+                                    placeholder="Nome do Usuário"
+                                />
+                            </div>
+                            <div>
                                 <label className="block text-sm font-medium mb-1">Email *</label>
                                 <input
                                     type="email"
