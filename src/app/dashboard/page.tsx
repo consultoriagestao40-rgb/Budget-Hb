@@ -45,6 +45,13 @@ export default async function DashboardPage({
         ? versionParam
         : (budgetVersions[0]?.id || '')
 
+    // Fetch fresh user role directly from DB to handle updates without re-login
+    const user = await prisma.user.findUnique({
+        where: { id: session.userId },
+        select: { role: true }
+    })
+    const userRole = user?.role || 'USER'
+
     const summaryData = await getDashboardSummary(currentYear, activeVersionId)
 
     return (
@@ -68,7 +75,7 @@ export default async function DashboardPage({
                 </div>
             </div>
 
-            <DashboardSummary data={summaryData} userRole={session.role || 'USER'} />
+            <DashboardSummary data={summaryData} userRole={userRole} />
         </div>
     )
 }
