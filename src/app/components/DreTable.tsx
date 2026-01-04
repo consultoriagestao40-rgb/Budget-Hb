@@ -8,6 +8,7 @@ import { createAccount, deleteAccount, updateAccount } from '@/app/actions/accou
 import { Modal } from './Modal'
 import { ConfirmationModal } from './ConfirmationModal'
 import { BudgetEditModal } from './BudgetEditModal'
+import { Maximize2, Minimize2 } from 'lucide-react'
 
 const MONTHS = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ']
 
@@ -50,6 +51,9 @@ export function DreTable({ initialData, tenantId, year, availableCompanies, filt
     // State for Edit Budget Values
     const [isEditModalOpen, setIsEditModalOpen] = useState(false)
     const [editTarget, setEditTarget] = useState<{ id: string, name: string, values: number[] } | null>(null)
+
+    // State for Fullscreen
+    const [isFullscreen, setIsFullscreen] = useState(false)
 
     // State for Confirmation
     const [confirmConfig, setConfirmConfig] = useState<{
@@ -359,17 +363,27 @@ export function DreTable({ initialData, tenantId, year, availableCompanies, filt
     }
 
     return (
-        <div className="flex flex-col h-full">
+        <div className={`flex flex-col h-full ${isFullscreen ? 'fixed inset-0 z-50 bg-[var(--bg-main)]' : ''}`}>
             <div className="p-4 border-b border-[var(--border-subtle)] bg-[var(--bg-surface)] flex justify-between items-center sticky left-0 z-20">
-                <span className="text-sm text-[var(--text-secondary)]">Estrutura de Contas</span>
-                {canManageStructure && (
-                    <button
-                        onClick={handleAddRootClick}
-                        className="btn btn-primary text-xs flex items-center gap-1"
-                    >
-                        <span>+</span> Nova Conta Principal
-                    </button>
-                )}
+                <div className="flex items-center gap-4">
+                    <span className="text-sm text-[var(--text-secondary)]">Estrutura de Contas</span>
+                    {canManageStructure && (
+                        <button
+                            onClick={handleAddRootClick}
+                            className="btn btn-primary text-xs flex items-center gap-1"
+                        >
+                            <span>+</span> Nova Conta Principal
+                        </button>
+                    )}
+                </div>
+
+                <button
+                    onClick={() => setIsFullscreen(!isFullscreen)}
+                    className="p-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)] rounded transition-colors"
+                    title={isFullscreen ? "Restaurar" : "Tela Cheia"}
+                >
+                    {isFullscreen ? <Minimize2 size={20} /> : <Maximize2 size={20} />}
+                </button>
             </div>
 
             <div className="flex-1 overflow-auto w-full relative">
