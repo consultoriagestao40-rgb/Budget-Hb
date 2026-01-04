@@ -149,7 +149,17 @@ export async function batchUpdateBudgetEntries(
     if (session.role !== 'ADMIN') {
         const hasPermission = await verifyPermission(session.userId, safeDimensions, 'canEdit')
         if (!hasPermission) {
-            return { success: false, error: 'Forbidden: You do not have permission to edit entries in this scope' }
+            // DEBUG DUMP
+            const allPerms = await prisma.userPermission.findMany({
+                where: { userId: session.userId },
+                select: { companyId: true, costCenterId: true, segmentId: true, canEdit: true }
+            })
+            const debugInfo = JSON.stringify({
+                ctx: safeDimensions,
+                perms: allPerms
+            }, null, 2)
+
+            return { success: false, error: `Forbidden: Debug Info: ${debugInfo}` }
         }
     }
 
