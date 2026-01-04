@@ -58,7 +58,7 @@ export function Sidebar({
             {!isCollapsed && (
                 <div className="px-4 py-6">
                     <div className="p-3 rounded-lg bg-[var(--bg-main)] border border-[var(--border-subtle)]">
-                        <p className="text-xs text-[var(--text-muted)] uppercase font-semibold mb-1">Tenant Atual</p>
+                        <p className="text-xs text-[var(--text-muted)] uppercase font-semibold mb-1">Organização</p>
                         <div className="flex items-center gap-2">
                             <div className="w-2 h-2 rounded-full bg-[var(--success)]"></div>
                             <p className="text-sm font-medium text-[var(--text-primary)] truncate">{tenantName}</p>
