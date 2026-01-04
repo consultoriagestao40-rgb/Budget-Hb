@@ -367,29 +367,54 @@ export default async function DrePage({
     const states = Array.from(new Set(cities.filter(c => c.state).map(c => c.state!))).sort()
 
     return (
-        <DreView
-            initialData={data}
-            tenantId={tenantId}
-            dreTitle={tenant?.dreTitle || "Demonstrativo de Resultados (DRE)"}
-            currentYear={effectiveYear} // Pass effective year
-            versions={budgetVersions}
-            currentVersionId={activeVersionId}
-            minYear={tMin}
-            maxYear={tMax}
+        <>
+            <DreView
+                initialData={data}
+                tenantId={tenantId}
+                dreTitle={tenant?.dreTitle || "Demonstrativo de Resultados (DRE)"}
+                currentYear={effectiveYear} // Pass effective year
+                versions={budgetVersions}
+                currentVersionId={activeVersionId}
+                minYear={tMin}
+                maxYear={tMax}
 
-            // Filter Data
-            companies={companies}
-            departments={departments}
-            costCenters={costCenters}
-            clients={clients}
-            segments={segments}
-            ccSegments={ccSegments}
-            cities={cities}
-            states={states}
+                // Filter Data
+                companies={companies}
+                departments={departments}
+                costCenters={costCenters}
+                clients={clients}
+                segments={segments}
+                ccSegments={ccSegments}
+                cities={cities}
+                states={states}
 
-            filters={{ companyId, departmentId, costCenterId, clientId, segmentId, ccSegmentId }}
-            userRole={user?.role || 'USER'}
-            userPermissions={permissions}
-        />
+                filters={{ companyId, departmentId, costCenterId, clientId, segmentId, ccSegmentId }}
+                userRole={user?.role || 'USER'}
+                userPermissions={permissions}
+            />
+            {resolvedParams.debug === 'true' && (
+                <div className="p-4 mt-8 bg-black/80 text-green-400 font-mono text-xs rounded border border-green-800 overflow-auto">
+                    <h3 className="font-bold text-lg mb-2">🔍 DRE Debug Panel</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <h4 className="font-bold text-white mb-1">User Permissions (Resolved)</h4>
+                            <pre>{JSON.stringify({
+                                allowedCompanyIds,
+                                allowedCostCenterIds,
+                                allowedSegmentIds
+                            }, null, 2)}</pre>
+                        </div>
+                        <div>
+                            <h4 className="font-bold text-white mt-2 mb-1">Query Conditions</h4>
+                            <p>Tenant ID: {tenantId}</p>
+                            <p>Year: {effectiveYear}</p>
+                            <h4 className="font-bold text-white mt-2 mb-1">Entries Found</h4>
+                            <p className="text-xl font-bold">{data.reduce((acc: number, r: any) => acc + r.values.reduce((s: number, v: number) => s + v, 0), 0) !== 0 ? 'Has Values' : 'All Zeros'}</p>
+                            <p>Total Rows: {data.length}</p>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </>
     )
 }
