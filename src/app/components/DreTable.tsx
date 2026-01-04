@@ -294,15 +294,15 @@ export function DreTable({ initialData, tenantId, year, availableCompanies, filt
                             className="flex items-center py-3 pr-4 border-r border-[var(--border-subtle)] h-full"
                             style={{ paddingLeft: `${row.level * 24 + 16}px` }}
                         >
-                            <span
-                                className={`mr-2 w-4 h-4 flex items-center justify-center text-[var(--text-secondary)] transition-transform duration-200 ${hasChildren ? 'cursor-pointer' : 'invisible'} ${isExpanded ? 'rotate-90' : ''}`}
+                            <button
+                                className={`mr-2 w-4 h-4 flex items-center justify-center border border-[var(--border-subtle)] bg-[var(--bg-surface-hover)] rounded-sm text-[var(--text-primary)] hover:bg-[var(--accent-primary)] hover:text-white transition-colors ${hasChildren ? 'cursor-pointer' : 'invisible'}`}
                                 onClick={(e) => {
                                     e.stopPropagation()
                                     toggleRow(row.id)
                                 }}
                             >
-                                ▶
-                            </span>
+                                {isExpanded ? '−' : '+'}
+                            </button>
 
                             <span className={`font-mono text-xs mr-3 min-w-[3rem] text-right ${isHeader ? 'text-[var(--text-primary)] font-bold' : 'text-[var(--text-tertiary)]'}`}>
                                 {row.code}
