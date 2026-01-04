@@ -276,7 +276,12 @@ export async function getDashboardChartsData(year: number, versionId?: string) {
     const [entries, clients, companies] = await Promise.all([
         prisma.budgetEntry.findMany({
             where: entryWhere,
-            include: { account: true, company: true, client: true }
+            include: {
+                account: true,
+                company: true,
+                client: true,
+                costCenter: { include: { client: true } }
+            }
         }),
         prisma.client.findMany({ where: { tenantId } }),
         prisma.company.findMany({ where: { tenantId } })
@@ -297,11 +302,14 @@ export async function getDashboardChartsData(year: number, versionId?: string) {
     // Init with all clients to show even zeros? No, only active.
 
     entries.forEach(e => {
-        if (!e.client) return // Ignore entries without client
+        // Resolve Client: Direct OR via Cost Center
+        const effectiveClientId = e.clientId || e.costCenter?.clientId
+
+        if (!effectiveClientId) return // Ignore entries without client
 
         const code = e.account.code
         const val = e.amount
-        const clientId = e.clientId!
+        const clientId = effectiveClientId
         const clientName = e.client.name
 
         if (!clientMap.has(clientId)) clientMap.set(clientId, { revenue: 0, costs: 0, deductions: 0 })
