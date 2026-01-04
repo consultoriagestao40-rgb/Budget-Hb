@@ -14,12 +14,14 @@ type DashboardSummaryProps = {
         rows: SummaryRow[]
         total: DashboardMetric
     }
+    userRole: string
 }
 
-export function DashboardSummary({ data }: DashboardSummaryProps) {
+export function DashboardSummary({ data, userRole }: DashboardSummaryProps) {
     const [expanded, setExpanded] = useState<Set<string>>(new Set())
     const { isCollapsed } = useSidebarStore()
     const [mounted, setMounted] = useState(false)
+    const showFinancials = userRole === 'ADMIN'
 
     useEffect(() => {
         setMounted(true)
@@ -63,7 +65,7 @@ export function DashboardSummary({ data }: DashboardSummaryProps) {
 
     const TableRow = ({ name, metrics, depth = 0, hasChildren = false, isExpanded = false, onToggle, debugInfo }: { name: string, metrics: DashboardMetric, depth?: number, hasChildren?: boolean, isExpanded?: boolean, onToggle?: () => void, debugInfo?: string }) => {
         return (
-            <div className={`grid grid-cols-[300px_repeat(10,minmax(160px,1fr))] gap-4 py-3 px-4 border-b border-[var(--border-color)] items-center hover:bg-[var(--bg-surface-hover)] transition-colors min-w-max ${depth > 0 ? 'bg-[var(--bg-secondary)]/30' : ''}`}>
+            <div className={`grid grid-cols-[300px_repeat(${showFinancials ? 10 : 6},minmax(160px,1fr))] gap-4 py-3 px-4 border-b border-[var(--border-color)] items-center hover:bg-[var(--bg-surface-hover)] transition-colors min-w-max ${depth > 0 ? 'bg-[var(--bg-secondary)]/30' : ''}`}>
 
                 {/* Name / Tree Toggle (Sticky Left) */}
                 <div
@@ -93,10 +95,15 @@ export function DashboardSummary({ data }: DashboardSummaryProps) {
                 <Cell value={metrics.grossMargin} percent={metrics.grossMarginPct} bold />
                 <Cell value={metrics.operationalExpenses} percent={metrics.operationalExpensesPct} />
                 <Cell value={metrics.grossProfit} percent={metrics.grossProfitPct} bold colorValue />
-                <Cell value={metrics.adminExpenses} percent={metrics.adminExpensesPct} />
-                <Cell value={metrics.ebitda} percent={metrics.ebitdaPct} bold />
-                <Cell value={metrics.financialExpenses} percent={metrics.financialExpensesPct} />
-                <Cell value={metrics.netProfit} percent={metrics.netProfitPct} bold colorValue />
+
+                {showFinancials && (
+                    <>
+                        <Cell value={metrics.adminExpenses} percent={metrics.adminExpensesPct} />
+                        <Cell value={metrics.ebitda} percent={metrics.ebitdaPct} bold />
+                        <Cell value={metrics.financialExpenses} percent={metrics.financialExpensesPct} />
+                        <Cell value={metrics.netProfit} percent={metrics.netProfitPct} bold colorValue />
+                    </>
+                )}
             </div>
         )
     }
@@ -109,7 +116,7 @@ export function DashboardSummary({ data }: DashboardSummaryProps) {
             <div className="overflow-x-auto pb-2 scrollbar-thin"> {/* Added pb-2 for scrollbar spacing */}
                 <div className="min-w-max">
                     {/* Header */}
-                    <div className="grid grid-cols-[300px_repeat(10,minmax(160px,1fr))] gap-4 px-4 py-3 bg-[var(--bg-surface-hover)] border-b border-[var(--border-color)] text-xs font-bold uppercase text-[var(--text-secondary)] tracking-wider">
+                    <div className={`grid grid-cols-[300px_repeat(${showFinancials ? 10 : 6},minmax(160px,1fr))] gap-4 px-4 py-3 bg-[var(--bg-surface-hover)] border-b border-[var(--border-color)] text-xs font-bold uppercase text-[var(--text-secondary)] tracking-wider`}>
                         <div className="sticky left-0 z-20 bg-[var(--bg-surface-hover)] -ml-4 pl-8 py-3 -my-3 border-r border-[var(--border-color)] flex items-center">Empresa / Centro</div>
                         <div className="text-right pr-4">Rec. Bruta</div>
                         <div className="text-right pr-4">Rec. Líquida</div>
@@ -117,10 +124,15 @@ export function DashboardSummary({ data }: DashboardSummaryProps) {
                         <div className="text-right pr-4">Margem Bruta</div>
                         <div className="text-right pr-4">Desp. Op.</div>
                         <div className="text-right pr-4">Lucro Bruto</div>
-                        <div className="text-right pr-4">Desp. Adm.</div>
-                        <div className="text-right pr-4">EBITDA</div>
-                        <div className="text-right pr-4">Desp. Fin.</div>
-                        <div className="text-right pr-4">Lucro Líq.</div>
+
+                        {showFinancials && (
+                            <>
+                                <div className="text-right pr-4">Desp. Adm.</div>
+                                <div className="text-right pr-4">EBITDA</div>
+                                <div className="text-right pr-4">Desp. Fin.</div>
+                                <div className="text-right pr-4">Lucro Líq.</div>
+                            </>
+                        )}
                     </div>
 
                     {/* Body */}
