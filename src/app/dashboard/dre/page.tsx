@@ -273,7 +273,90 @@ export default async function DrePage({
     const cityIds = split(resolvedParams.cityId as string)
     const states = split(resolvedParams.state as string)
 
-    // ... (rest of logic)
+    const yearParam = resolvedParams.year as string | undefined
+    const currentYear = yearParam ? parseInt(yearParam) : 2025
+
+    const session = await getIronSession<SessionData>(await cookies(), sessionOptions)
+    if (!session.isLoggedIn) {
+        redirect('/login')
+    }
+
+    const tenantId = session.tenantId
+
+    // Get User Permissions
+    let user;
+    try {
+        user = await prisma.user.findUnique({
+            where: { id: session.userId },
+            include: {
+                permissions: {
+                    select: {
+                        companyId: true,
+                        costCenterId: true,
+                        segmentId: true,
+                        canView: true
+                    }
+                }
+            }
+        })
+    } catch (error) {
+        console.error("Error fetching permissions with segmentId in DRE:", error)
+        user = await prisma.user.findUnique({
+            where: { id: session.userId },
+            include: {
+                permissions: {
+                    select: {
+                        companyId: true,
+                        costCenterId: true,
+                        canView: true
+                    }
+                }
+            }
+        })
+    }
+
+    const userTyped = user as any
+    const permissions = userTyped?.permissions || []
+
+    const allowedCompanyIds = permissions.filter((p: any) => p.companyId).map((p: any) => p.companyId!)
+    const allowedCostCenterIds = permissions.filter((p: any) => p.costCenterId).map((p: any) => p.costCenterId!)
+    const allowedSegmentIds = permissions.filter((p: any) => p.segmentId).map((p: any) => p.segmentId!)
+
+    const companyFilter: any = { tenantId }
+    if (allowedCompanyIds.length > 0) {
+        companyFilter.id = { in: allowedCompanyIds }
+    }
+
+    const costCenterFilter: any = { tenantId }
+    if (allowedCostCenterIds.length > 0) {
+        costCenterFilter.id = { in: allowedCostCenterIds }
+    }
+
+    // Security Check: Deny if no permissions and not Admin
+    const hasAnyPermission = allowedCompanyIds.length > 0 || allowedCostCenterIds.length > 0 || allowedSegmentIds.length > 0
+    if (!hasAnyPermission && user?.role !== 'ADMIN') {
+        return (
+            <div className="flex items-center justify-center h-screen text-[var(--text-secondary)]">
+                Acesso negado. Nenhuma permissão atribuída.
+            </div>
+        )
+    }
+
+    // Version Logic
+    const budgetVersions = await prisma.budgetVersion.findMany({
+        where: { tenantId },
+        orderBy: { createdAt: 'asc' }
+    })
+    const versionParam = resolvedParams.versionId as string | undefined
+    const activeVersionId = (versionParam && budgetVersions.find(v => v.id === versionParam))
+        ? versionParam
+        : (budgetVersions[0]?.id || '')
+
+    // 1. Fetch Tenant Config FIRST to ensure safe year
+    const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } })
+    const tMin = tenant?.minYear || 2024
+    const tMax = tenant?.maxYear || 2027
+    const effectiveYear = Math.min(Math.max(currentYear, tMin), tMax)
 
     // 2. Fetch Data using SAFE effectiveYear
     // NOTE: We change the signature call
@@ -309,7 +392,7 @@ export default async function DrePage({
     }
 
     // Extract unique states
-    const states = Array.from(new Set(cities.filter(c => c.state).map(c => c.state!))).sort()
+    const availableStates = Array.from(new Set(cities.filter(c => c.state).map(c => c.state!))).sort()
 
     return (
         <>
@@ -331,7 +414,7 @@ export default async function DrePage({
                 segments={segments}
                 ccSegments={ccSegments}
                 cities={cities}
-                states={states}
+                states={availableStates}
 
                 filters={{
                     companyId: companyIds?.join(','),
