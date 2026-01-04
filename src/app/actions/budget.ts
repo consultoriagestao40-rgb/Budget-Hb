@@ -99,8 +99,17 @@ export async function batchUpdateBudgetEntries(
     const session = await getIronSession<SessionData>(await cookies(), sessionOptions)
     if (!session.isLoggedIn || session.tenantId !== tenantId) throw new Error('Unauthorized')
 
+    // Verify and Sanitize Dimensions
+    const safeDimensions = {
+        companyId: dimensions.companyId === 'all' ? '' : dimensions.companyId, // Company is required usually, but handle safe
+        costCenterId: dimensions.costCenterId === 'all' ? null : dimensions.costCenterId,
+        clientId: dimensions.clientId === 'all' ? null : dimensions.clientId,
+        groupingId: dimensions.groupingId === 'all' ? null : dimensions.groupingId,
+        segmentId: dimensions.segmentId === 'all' ? null : dimensions.segmentId
+    }
+
     if (session.role !== 'ADMIN') {
-        const hasPermission = await verifyPermission(session.userId, dimensions, 'canEdit')
+        const hasPermission = await verifyPermission(session.userId, safeDimensions, 'canEdit')
         if (!hasPermission) {
             throw new Error('Forbidden: You do not have permission to edit entries in this scope')
         }
@@ -115,11 +124,11 @@ export async function batchUpdateBudgetEntries(
                     month: entry.month,
                     year,
                     budgetVersionId,
-                    companyId: dimensions.companyId,
-                    costCenterId: dimensions.costCenterId,
-                    clientId: dimensions.clientId,
-                    groupingId: dimensions.groupingId,
-                    segmentId: dimensions.segmentId
+                    companyId: safeDimensions.companyId,
+                    costCenterId: safeDimensions.costCenterId,
+                    clientId: safeDimensions.clientId,
+                    groupingId: safeDimensions.groupingId,
+                    segmentId: safeDimensions.segmentId
                 }
             })
 
@@ -138,11 +147,11 @@ export async function batchUpdateBudgetEntries(
                         year,
                         amount: entry.amount,
                         budgetVersionId,
-                        companyId: dimensions.companyId,
-                        costCenterId: dimensions.costCenterId,
-                        clientId: dimensions.clientId,
-                        groupingId: dimensions.groupingId,
-                        segmentId: dimensions.segmentId
+                        companyId: safeDimensions.companyId!, // Assuming validated
+                        costCenterId: safeDimensions.costCenterId,
+                        clientId: safeDimensions.clientId,
+                        groupingId: safeDimensions.groupingId,
+                        segmentId: safeDimensions.segmentId
                     }
                 })
             }

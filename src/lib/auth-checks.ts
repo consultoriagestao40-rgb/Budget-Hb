@@ -14,7 +14,7 @@ export type PermissionAction = 'canView' | 'canEdit' | 'canCreate' | 'canDelete'
  */
 export async function verifyPermission(
     userId: string,
-    context: { companyId?: string | null, costCenterId?: string | null },
+    context: { companyId?: string | null, costCenterId?: string | null, segmentId?: string | null },
     action: PermissionAction
 ): Promise<boolean> {
     const perms = await prisma.userPermission.findMany({ where: { userId } })
@@ -22,14 +22,14 @@ export async function verifyPermission(
     if (perms.length === 0) return false
 
     // 1. Company Level Check
-    if (context.companyId) {
+    if (context.companyId && context.companyId !== 'all') {
         const companyPerm = perms.find(p => p.companyId === context.companyId)
         if (!companyPerm) return false
         if (!companyPerm[action]) return false
     }
 
     // 2. Cost Center Level Check
-    if (context.costCenterId) {
+    if (context.costCenterId && context.costCenterId !== 'all') {
         const hasCCRestrictions = perms.some(p => p.costCenterId !== null)
 
         if (hasCCRestrictions) {
@@ -42,6 +42,17 @@ export async function verifyPermission(
         } else {
             // No CC restrictions, so if Company check passed, we are good.
             // (Implied access to all CCs in the permitted company)
+        }
+    }
+
+    // 3. Segment Level Check (Centro de Despesa)
+    if (context.segmentId && context.segmentId !== 'all') {
+        const hasSegmentRestrictions = perms.some(p => p.segmentId !== null)
+
+        if (hasSegmentRestrictions) {
+            const segmentPerm = perms.find(p => p.segmentId === context.segmentId)
+            if (!segmentPerm) return false
+            if (!segmentPerm[action]) return false
         }
     }
 
