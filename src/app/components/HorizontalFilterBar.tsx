@@ -1,6 +1,8 @@
 'use client'
 
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
+import { useState } from 'react'
+import { ChevronDown } from 'lucide-react'
 import { MultiSelect } from './MultiSelect'
 
 interface FilterOption {
@@ -171,9 +173,17 @@ export function HorizontalFilterBar({
 
     const showAdvanced = userRole === 'ADMIN'
 
+    const [isExpanded, setIsExpanded] = useState(false)
+    const hasActiveSecondaryFilters = currentFilters.departmentIds.length > 0 ||
+        currentFilters.ccSegmentIds.length > 0 ||
+        currentFilters.segmentIds.length > 0 ||
+        currentFilters.states.length > 0 ||
+        currentFilters.cityIds.length > 0
+
     return (
-        <div className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-xl p-4 shadow-sm mb-6">
-            <div className="flex flex-wrap gap-4">
+        <div className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-xl p-3 shadow-sm mb-4 relative transition-all duration-300">
+            <div className="grid grid-cols-4 gap-3">
+                {/* Row 1: Always Visible */}
                 <MultiSelect
                     label="Empresa"
                     options={companies}
@@ -195,47 +205,67 @@ export function HorizontalFilterBar({
                     disabled={filteredClients.length === 0}
                 />
 
+                {/* 4th slot: Department OR Toggle placeholder if not expanded? 
+                    Actually, let's put Department in Row 1 if fits, but user asked for 4 per row. 
+                    So Dept goes here. */}
                 {showAdvanced && (
-                    <>
-                        <MultiSelect
-                            label="Departamento"
-                            options={prepDepts}
-                            selectedIds={currentFilters.departmentIds}
-                            onChange={v => handleFilterChange('departmentId', v)}
-                            disabled={filteredDepartments.length === 0}
-                        />
-                        <MultiSelect
-                            label="Seguimento"
-                            options={filteredCCSegments}
-                            selectedIds={currentFilters.ccSegmentIds}
-                            onChange={v => handleFilterChange('ccSegmentId', v)}
-                            disabled={filteredCCSegments.length === 0}
-                        />
-                        <MultiSelect
-                            label="Centro de Despesa"
-                            options={prepSegs} // Using prepared segments
-                            selectedIds={currentFilters.segmentIds}
-                            onChange={v => handleFilterChange('segmentId', v)}
-                            disabled={filteredSegments.length === 0}
-                        />
-
-                        {/* State is string array, needs mapping to object shape for MultiSelect */}
-                        <MultiSelect
-                            label="UF"
-                            options={states.map(s => ({ id: s, name: s }))}
-                            selectedIds={currentFilters.states}
-                            onChange={v => handleFilterChange('state', v)}
-                        />
-
-                        <MultiSelect
-                            label="Cidade"
-                            options={filteredCities}
-                            selectedIds={currentFilters.cityIds}
-                            onChange={v => handleFilterChange('cityId', v)}
-                        />
-                    </>
+                    <MultiSelect
+                        label="Departamento"
+                        options={prepDepts}
+                        selectedIds={currentFilters.departmentIds}
+                        onChange={v => handleFilterChange('departmentId', v)}
+                        disabled={filteredDepartments.length === 0}
+                    />
                 )}
+
+                {/* Toggle Button Absolute or Row? 
+                    If we have 4 items, Row 1 is full.
+                    Row 2 starts below.
+                */}
             </div>
+
+            {/* Row 2: Collapsible */}
+            {showAdvanced && (
+                <div className={`grid grid-cols-4 gap-3 mt-3 overflow-hidden transition-all duration-300 ${isExpanded || hasActiveSecondaryFilters ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0 mt-0'}`}>
+                    <MultiSelect
+                        label="Seguimento"
+                        options={filteredCCSegments}
+                        selectedIds={currentFilters.ccSegmentIds}
+                        onChange={v => handleFilterChange('ccSegmentId', v)}
+                        disabled={filteredCCSegments.length === 0}
+                    />
+                    <MultiSelect
+                        label="Centro de Despesa"
+                        options={prepSegs}
+                        selectedIds={currentFilters.segmentIds}
+                        onChange={v => handleFilterChange('segmentId', v)}
+                        disabled={filteredSegments.length === 0}
+                    />
+                    <MultiSelect
+                        label="UF"
+                        options={states.map(s => ({ id: s, name: s }))}
+                        selectedIds={currentFilters.states}
+                        onChange={v => handleFilterChange('state', v)}
+                    />
+                    <MultiSelect
+                        label="Cidade"
+                        options={filteredCities}
+                        selectedIds={currentFilters.cityIds}
+                        onChange={v => handleFilterChange('cityId', v)}
+                    />
+                </div>
+            )}
+
+            {/* Toggle Action */}
+            {showAdvanced && (
+                <button
+                    onClick={() => setIsExpanded(!isExpanded)}
+                    className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-full p-1 shadow-sm hover:bg-[var(--bg-surface-hover)] z-10 text-[var(--text-secondary)]"
+                    title={isExpanded ? "Recolher Filtros" : "Expandir Filtros"}
+                >
+                    <ChevronDown size={16} className={`transition-transform duration-300 ${isExpanded || hasActiveSecondaryFilters ? 'rotate-180' : ''}`} />
+                </button>
+            )}
         </div>
     )
 }
