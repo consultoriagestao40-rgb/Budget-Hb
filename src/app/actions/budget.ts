@@ -203,6 +203,6 @@ export async function batchUpdateBudgetEntries(
         return { success: false, error: msg }
     }
 
-    // revalidatePath('/dashboard/dre')
+    revalidatePath('/dashboard/dre')
     return { success: true }
 }
