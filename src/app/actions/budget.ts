@@ -110,13 +110,13 @@ export async function batchUpdateBudgetEntries(
     }
 
     if (!safeDimensions.companyId) {
-        throw new Error('Database Error: Company ID is required for saving.')
+        return { success: false, error: 'Database Error: Company ID is required for saving.' }
     }
 
     if (session.role !== 'ADMIN') {
         const hasPermission = await verifyPermission(session.userId, safeDimensions, 'canEdit')
         if (!hasPermission) {
-            throw new Error('Forbidden: You do not have permission to edit entries in this scope')
+            return { success: false, error: 'Forbidden: You do not have permission to edit entries in this scope' }
         }
     }
 
