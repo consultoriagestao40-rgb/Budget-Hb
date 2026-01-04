@@ -113,6 +113,39 @@ export async function batchUpdateBudgetEntries(
         return { success: false, error: 'Database Error: Company ID is required for saving.' }
     }
 
+    // Smart Context Resolution for "All" filters
+    // If Cost Center is 'null' (All), but user only has permission for ONE specific Cost Center,
+    // we assume they mean to save to that specific Cost Center.
+    if (!safeDimensions.costCenterId && session.role !== 'ADMIN') {
+        const userPerms = await prisma.userPermission.findMany({
+            where: { userId: session.userId, companyId: safeDimensions.companyId }
+        })
+
+        // Check for Global Permission first
+        const hasGlobalPerm = userPerms.some(p => p.costCenterId === null && p.canEdit)
+
+        if (!hasGlobalPerm) {
+            // No global permission. Check specific permissions.
+            const allowedCCs = userPerms
+                .filter(p => p.costCenterId !== null && p.canEdit)
+                .map(p => p.costCenterId!)
+
+            const uniqueCCs = Array.from(new Set(allowedCCs))
+
+            if (uniqueCCs.length === 1) {
+                // Auto-Scope to the single allowed Cost Center
+                safeDimensions.costCenterId = uniqueCCs[0]
+            } else if (uniqueCCs.length > 1) {
+                return {
+                    success: false,
+                    error: 'Ambiguidade: Você tem acesso a múltiplos Centros de Custo. Por favor, selecione um específico no filtro para salvar.'
+                }
+            } else {
+                // No permissions at all (will be caught by verifyPermission, but good to check)
+            }
+        }
+    }
+
     if (session.role !== 'ADMIN') {
         const hasPermission = await verifyPermission(session.userId, safeDimensions, 'canEdit')
         if (!hasPermission) {
