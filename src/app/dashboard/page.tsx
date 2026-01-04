@@ -1,5 +1,6 @@
-import { getDashboardSummary } from '../actions/dashboard'
+import { getDashboardSummary, getDashboardChartsData } from '../actions/dashboard'
 import { DashboardSummary } from './DashboardSummary'
+import { DashboardCharts } from './DashboardCharts'
 import { prisma } from '@/lib/prisma'
 import { getIronSession } from 'iron-session'
 import { cookies } from 'next/headers'
@@ -53,6 +54,7 @@ export default async function DashboardPage({
     const userRole = user?.role || 'USER'
 
     const summaryData = await getDashboardSummary(currentYear, activeVersionId)
+    const chartsData = await getDashboardChartsData(currentYear, activeVersionId)
 
     return (
         <div className="space-y-6">
@@ -75,6 +77,7 @@ export default async function DashboardPage({
                 </div>
             </div>
 
+            <DashboardCharts data={chartsData} />
             <DashboardSummary data={summaryData} userRole={userRole} />
         </div>
     )
