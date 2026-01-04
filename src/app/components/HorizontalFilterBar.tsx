@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { MultiSelect } from './MultiSelect'
 
@@ -174,11 +174,33 @@ export function HorizontalFilterBar({
     const showAdvanced = userRole === 'ADMIN'
 
     const [isExpanded, setIsExpanded] = useState(false)
+    const [overflowVisible, setOverflowVisible] = useState(false)
+
     const hasActiveSecondaryFilters = currentFilters.departmentIds.length > 0 ||
         currentFilters.ccSegmentIds.length > 0 ||
         currentFilters.segmentIds.length > 0 ||
         currentFilters.states.length > 0 ||
         currentFilters.cityIds.length > 0
+
+    // Auto-expand if active filters
+    useEffect(() => {
+        if (hasActiveSecondaryFilters) {
+            setIsExpanded(true)
+        }
+    }, [hasActiveSecondaryFilters])
+
+    // Handle overflow visibility for dropdowns matching transition duration (300ms)
+    useEffect(() => {
+        let timeout: NodeJS.Timeout
+        if (isExpanded) {
+            // Wait for transition to finish then allow overflow
+            timeout = setTimeout(() => setOverflowVisible(true), 300)
+        } else {
+            // Immediately clip for hiding transition
+            setOverflowVisible(false)
+        }
+        return () => clearTimeout(timeout)
+    }, [isExpanded])
 
     return (
         <div className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-xl p-3 shadow-sm mb-4 relative transition-all duration-300">
@@ -226,7 +248,13 @@ export function HorizontalFilterBar({
 
             {/* Row 2: Collapsible */}
             {showAdvanced && (
-                <div className={`grid grid-cols-4 gap-3 mt-3 overflow-hidden transition-all duration-300 ${isExpanded || hasActiveSecondaryFilters ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0 mt-0'}`}>
+                <div
+                    className={`
+                        grid grid-cols-4 gap-3 mt-3 transition-all duration-300 ease-in-out
+                        ${isExpanded ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0 mt-0'}
+                        ${overflowVisible ? 'overflow-visible' : 'overflow-hidden'}
+                    `}
+                >
                     <MultiSelect
                         label="Seguimento"
                         options={filteredCCSegments}
@@ -263,7 +291,7 @@ export function HorizontalFilterBar({
                     className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-full p-1 shadow-sm hover:bg-[var(--bg-surface-hover)] z-10 text-[var(--text-secondary)]"
                     title={isExpanded ? "Recolher Filtros" : "Expandir Filtros"}
                 >
-                    <ChevronDown size={16} className={`transition-transform duration-300 ${isExpanded || hasActiveSecondaryFilters ? 'rotate-180' : ''}`} />
+                    <ChevronDown size={16} className={`transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`} />
                 </button>
             )}
         </div>
