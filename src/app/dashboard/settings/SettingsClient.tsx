@@ -57,6 +57,7 @@ export function SettingsClient({
 
     // Tenant Profile State
     const [tenantProfile, setTenantProfile] = useState({
+        name: initialTenant?.name || '',
         ownerName: initialTenant?.ownerName || '',
         website: initialTenant?.website || '',
         address: initialTenant?.address || '',
@@ -280,6 +281,17 @@ export function SettingsClient({
                             <h3 className="text-lg font-bold text-[var(--text-primary)] mb-4 border-b border-[var(--border-subtle)] pb-2">Informações da Empresa</h3>
 
                             <div className="grid gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium mb-1 text-[var(--text-secondary)]">Nome da Organização</label>
+                                    <input
+                                        type="text"
+                                        value={tenantProfile.name}
+                                        onChange={e => setTenantProfile({ ...tenantProfile, name: e.target.value })}
+                                        className="input-outline w-full"
+                                        placeholder="Nome oficial da empresa"
+                                    />
+                                    <p className="text-xs text-[var(--text-muted)] mt-1">Este nome aparecerá na barra lateral.</p>
+                                </div>
                                 <div>
                                     <label className="block text-sm font-medium mb-1 text-[var(--text-secondary)]">Nome do Responsável</label>
                                     <input

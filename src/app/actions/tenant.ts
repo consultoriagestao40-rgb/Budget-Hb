@@ -14,6 +14,7 @@ export async function updateTenantProfile(data: {
     logoUrl?: string
     description?: string
     ownerName?: string
+    name?: string
 }) {
     const session = await getIronSession<SessionData>(await cookies(), sessionOptions)
 
@@ -35,7 +36,8 @@ export async function updateTenantProfile(data: {
                 phone: data.phone,
                 logoUrl: data.logoUrl,
                 description: data.description,
-                ownerName: data.ownerName
+                ownerName: data.ownerName,
+                name: data.name
             }
         })
 
