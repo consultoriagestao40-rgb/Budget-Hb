@@ -1,6 +1,7 @@
 'use client'
 
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
+import { MultiSelect } from './MultiSelect'
 
 interface FilterOption {
     id: string
@@ -37,12 +38,22 @@ export function HorizontalFilterBar({
     const pathname = usePathname()
     const searchParams = useSearchParams()
 
-    const handleFilterChange = (key: string, value: string) => {
-        const params = new URLSearchParams(searchParams.toString())
-        if (value && value !== 'all') {
-            params.set(key, value)
+    // Helper to get array from comma-separated string
+    const getValues = (key: string): string[] => {
+        const val = searchParams.get(key)
+        return val && val !== 'all' ? val.split(',') : []
+    }
 
-            // Cascading Resets
+    const handleFilterChange = (key: string, values: string[]) => {
+        const params = new URLSearchParams(searchParams.toString())
+
+        if (values.length > 0) {
+            params.set(key, values.join(','))
+
+            // Cascading Resets (If parent filter changes, clear children to avoid invalid states)
+            // Note: In multi-select, we might be ADDING a parent option, so clearing might be annoying.
+            // But strict hierarchy requires children to belong to parents.
+            // Let's Keep strict reset for safety for now.
             if (key === 'companyId') {
                 params.delete('departmentId')
                 params.delete('costCenterId')
@@ -53,7 +64,6 @@ export function HorizontalFilterBar({
             if (key === 'departmentId') {
                 params.delete('costCenterId')
                 params.delete('segmentId')
-                // Indirect children of CostCenter need reset too as their context changes
                 params.delete('clientId')
                 params.delete('ccSegmentId')
             }
@@ -68,60 +78,61 @@ export function HorizontalFilterBar({
     }
 
     const currentFilters = {
-        companyId: searchParams.get('companyId') || 'all',
-        departmentId: searchParams.get('departmentId') || 'all',
-        costCenterId: searchParams.get('costCenterId') || 'all',
-        clientId: searchParams.get('clientId') || 'all',
-        segmentId: searchParams.get('segmentId') || 'all', // Centro de Despesa
-        ccSegmentId: searchParams.get('ccSegmentId') || 'all', // Seguimento
-        cityId: searchParams.get('cityId') || 'all',
-        state: searchParams.get('state') || 'all',
+        companyIds: getValues('companyId'),
+        departmentIds: getValues('departmentId'),
+        costCenterIds: getValues('costCenterId'),
+        clientIds: getValues('clientId'),
+        segmentIds: getValues('segmentId'),
+        ccSegmentIds: getValues('ccSegmentId'),
+        cityIds: getValues('cityId'),
+        states: getValues('state'),
     }
 
     // --- Cascading Logic ---
 
-    // 1. Filter Departments by Company
-    const filteredDepartments = currentFilters.companyId !== 'all'
-        ? departments.filter(d => d.companyId === currentFilters.companyId)
+    // 1. Filter Departments by Companies
+    const filteredDepartments = currentFilters.companyIds.length > 0
+        ? departments.filter(d => d.companyId && currentFilters.companyIds.includes(d.companyId))
         : departments
 
-    // 2. Filter CostCenters by Department (and indirectly by Company)
+    // 2. Filter CostCenters
     const filteredCostCenters = costCenters.filter(cc => {
-        // If specific Department selected, show only its CostCenters
-        if (currentFilters.departmentId !== 'all') {
-            return cc.groupingId === currentFilters.departmentId
+        if (currentFilters.departmentIds.length > 0) {
+            return cc.groupingId && currentFilters.departmentIds.includes(cc.groupingId)
         }
-        // If Company selected (but no specific Dept), show CostCenters of that Company's Departments
-        if (currentFilters.companyId !== 'all') {
+        if (currentFilters.companyIds.length > 0) {
             return filteredDepartments.some(d => d.id === cc.groupingId)
         }
         return true
     })
 
-    // 3. Filter "Centro de Despesa" (Segment) by Department
-    // Requirements: Must match selected Department, or belongs to selected Company's departments
+    // 3. Filter "Centro de Despesa" (Separate segments)
     const filteredSegments = (segments as any[]).filter(seg => {
-        if (currentFilters.departmentId !== 'all') {
-            return seg.groupingId === currentFilters.departmentId
+        if (currentFilters.departmentIds.length > 0) {
+            return seg.groupingId && currentFilters.departmentIds.includes(seg.groupingId)
         }
-        if (currentFilters.companyId !== 'all') {
+        if (currentFilters.companyIds.length > 0) {
             return filteredDepartments.some(d => d.id === seg.groupingId)
         }
         return true
     })
 
-    // 4. Filter "Seguimento" (ccSegment) based on AVAILABLE CostCenters
-    // Only show segments that are used by the currently filtered cost centers
+    // 4. Filter segments (Followups)
     const activeCCSegmentIds = new Set(filteredCostCenters.map((cc: any) => cc.segmentId).filter(Boolean))
     const filteredCCSegments = ccSegments.filter(ccs => activeCCSegmentIds.has(ccs.id))
 
-    // 5. Filter "Cliente" based on AVAILABLE CostCenters
-    // Only show clients that are used by the currently filtered cost centers
+    // 5. Filter Clients
     const activeClientIds = new Set(filteredCostCenters.map((cc: any) => cc.clientId).filter(Boolean))
     const filteredClients = clients.filter(c => activeClientIds.has(c.id))
 
-    // 6. Filter Cities by State
-    // --- Hierarchical Label Helpers ---
+    // 6. Filter Cities
+    const filteredCities = currentFilters.states.length > 0
+        ? cities.filter(c => currentFilters.states.includes(c.state))
+        : cities
+
+    // Helper functions for codes (unchanged logic, just moved inline or simplified if needed)
+    // ... kept simple for rendering
+
     const getCompanyCode = (id: string | null | undefined) => {
         if (!id) return ''
         const c = companies.find(x => x.id === id)
@@ -133,134 +144,94 @@ export function HorizontalFilterBar({
         const d = departments.find(x => x.id === id)
         if (!d) return ''
         const cCode = getCompanyCode(d.companyId)
-        // Ensure we handle cases where Company Code might be missing but Dept Code exists
         if (cCode && d.code) return `${cCode}.${d.code}`
         if (d.code) return d.code
         return ''
     }
 
-    // Prepare Options with Full Codes
-    const preparedDepartments = filteredDepartments.map(d => ({
-        ...d,
+    // Prepare Options
+    const prepare = (list: any[], type: 'dept' | 'cc' | 'seg') => list.map(item => ({
+        ...item,
         fullCode: (() => {
-            const val = getCompanyCode(d.companyId)
-            return val && d.code ? `${val}.${d.code}` : d.code
+            if (type === 'dept') {
+                const val = getCompanyCode(item.companyId)
+                return val && item.code ? `${val}.${item.code}` : item.code
+            }
+            if (type === 'cc' || type === 'seg') {
+                const deptFull = getDepartmentCode(item.groupingId)
+                return deptFull && item.code ? `${deptFull}.${item.code}` : item.code
+            }
+            return item.code || ''
         })()
     }))
 
-    const preparedCostCenters = filteredCostCenters.map(cc => ({
-        ...cc,
-        fullCode: (() => {
-            const deptFull = getDepartmentCode(cc.groupingId)
-            // Format: Company.Dept.CostCenterCode
-            return deptFull && cc.code ? `${deptFull}.${cc.code}` : cc.code
-        })()
-    }))
+    const prepDepts = prepare(filteredDepartments, 'dept')
+    const prepCCs = prepare(filteredCostCenters, 'cc')
+    const prepSegs = prepare(filteredSegments, 'seg')
 
-    const preparedSegments = (filteredSegments as FilterOption[]).map(s => ({
-        ...s,
-        fullCode: (() => {
-            const deptFull = getDepartmentCode(s.groupingId)
-            // Format: Company.Dept.ExpenseCenterCode
-            return deptFull && s.code ? `${deptFull}.${s.code}` : s.code
-        })()
-    }))
-
-    // 6. Filter Cities by State
-    const filteredCities = currentFilters.state !== 'all'
-        ? cities.filter(c => c.state === currentFilters.state)
-        : cities
-
-    const FilterSelect = ({ label, value, onChange, options, disabled = false }: { label: string, value: string, onChange: (v: string) => void, options: (FilterOption & { fullCode?: string | null })[], disabled?: boolean }) => (
-        <div className="flex flex-col gap-1 min-w-[150px] flex-1">
-            <label className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">{label}</label>
-            <select
-                value={value}
-                onChange={(e) => onChange(e.target.value)}
-                disabled={disabled}
-                className="select select-sm select-bordered w-full text-sm bg-[var(--bg-surface)] border-[var(--border-subtle)] focus:border-[var(--accent-primary)] focus:ring-0 disabled:opacity-50"
-            >
-                <option value="all">Todos</option>
-                {options.map(opt => (
-                    <option key={opt.id} value={opt.id}>
-                        {opt.fullCode ? `${opt.fullCode} - ${opt.name}` : (opt.code ? `${opt.code} - ${opt.name}` : opt.name)}
-                    </option>
-                ))}
-            </select>
-        </div>
-    )
-
-    // Rule: Non-Admins only see basic filters (Company, Dept, CostCenter, Client)
     const showAdvanced = userRole === 'ADMIN'
 
     return (
         <div className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-xl p-4 shadow-sm mb-6">
             <div className="flex flex-wrap gap-4">
-                <FilterSelect
+                <MultiSelect
                     label="Empresa"
-                    value={currentFilters.companyId}
-                    onChange={v => handleFilterChange('companyId', v)}
                     options={companies}
+                    selectedIds={currentFilters.companyIds}
+                    onChange={v => handleFilterChange('companyId', v)}
                 />
-                <FilterSelect
+                <MultiSelect
                     label="Centro de Custo"
-                    value={currentFilters.costCenterId}
+                    options={prepCCs}
+                    selectedIds={currentFilters.costCenterIds}
                     onChange={v => handleFilterChange('costCenterId', v)}
-                    options={preparedCostCenters}
                     disabled={filteredCostCenters.length === 0}
                 />
-                <FilterSelect
+                <MultiSelect
                     label="Cliente"
-                    value={currentFilters.clientId}
-                    onChange={v => handleFilterChange('clientId', v)}
                     options={filteredClients}
+                    selectedIds={currentFilters.clientIds}
+                    onChange={v => handleFilterChange('clientId', v)}
                     disabled={filteredClients.length === 0}
                 />
 
-                {/* Advanced Filters - Admin Only */}
                 {showAdvanced && (
                     <>
-                        {/* Moved Department Here */}
-                        <FilterSelect
+                        <MultiSelect
                             label="Departamento"
-                            value={currentFilters.departmentId}
+                            options={prepDepts}
+                            selectedIds={currentFilters.departmentIds}
                             onChange={v => handleFilterChange('departmentId', v)}
-                            options={preparedDepartments}
                             disabled={filteredDepartments.length === 0}
                         />
-
-                        <FilterSelect
+                        <MultiSelect
                             label="Seguimento"
-                            value={currentFilters.ccSegmentId}
-                            onChange={v => handleFilterChange('ccSegmentId', v)}
                             options={filteredCCSegments}
+                            selectedIds={currentFilters.ccSegmentIds}
+                            onChange={v => handleFilterChange('ccSegmentId', v)}
                             disabled={filteredCCSegments.length === 0}
                         />
-                        <FilterSelect
+                        <MultiSelect
                             label="Centro de Despesa"
-                            value={currentFilters.segmentId}
+                            options={prepSegs} // Using prepared segments
+                            selectedIds={currentFilters.segmentIds}
                             onChange={v => handleFilterChange('segmentId', v)}
-                            options={preparedSegments}
                             disabled={filteredSegments.length === 0}
                         />
-                        <div className="flex flex-col gap-1 min-w-[100px] w-[100px]">
-                            <label className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">UF</label>
-                            <select
-                                value={currentFilters.state}
-                                onChange={(e) => handleFilterChange('state', e.target.value)}
-                                className="select select-sm select-bordered w-full text-sm bg-[var(--bg-surface)] border-[var(--border-subtle)]"
-                            >
-                                <option value="all">Todas</option>
-                                {states.map(s => (
-                                    <option key={s} value={s}>{s}</option>
-                                ))}
-                            </select>
-                        </div>
-                        <FilterSelect
+
+                        {/* State is string array, needs mapping to object shape for MultiSelect */}
+                        <MultiSelect
+                            label="UF"
+                            options={states.map(s => ({ id: s, name: s }))}
+                            selectedIds={currentFilters.states}
+                            onChange={v => handleFilterChange('state', v)}
+                        />
+
+                        <MultiSelect
                             label="Cidade"
-                            value={currentFilters.cityId}
-                            onChange={v => handleFilterChange('cityId', v)}
                             options={filteredCities}
+                            selectedIds={currentFilters.cityIds}
+                            onChange={v => handleFilterChange('cityId', v)}
                         />
                     </>
                 )}
