@@ -243,7 +243,7 @@ export function DreTable({ initialData, tenantId, year, availableCompanies, filt
             setIsEditModalOpen(false)
         } catch (error: any) {
             console.error('Save failed:', error)
-            alert('Falha ao salvar valores. Tente novamente.')
+            alert('Falha ao salvar: ' + (error.message || 'Erro desconhecido. Tente novamente.'))
         }
     }
 
