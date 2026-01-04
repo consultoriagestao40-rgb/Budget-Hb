@@ -40,7 +40,7 @@ export function DashboardCharts({ data }: DashboardChartsProps) {
                             <YAxis type="category" dataKey="name" width={100} stroke="var(--text-secondary)" fontSize={11} />
                             <Tooltip
                                 contentStyle={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}
-                                formatter={(val: number) => formatCurrency(val)}
+                                formatter={(val: number | undefined) => formatCurrency(val ?? 0)}
                             />
                             <Bar dataKey="value" name="Receita" fill="var(--primary)" radius={[0, 4, 4, 0]} barSize={20} />
                         </BarChart>
@@ -63,7 +63,7 @@ export function DashboardCharts({ data }: DashboardChartsProps) {
                             <YAxis type="category" dataKey="name" width={100} stroke="var(--text-secondary)" fontSize={11} />
                             <Tooltip
                                 contentStyle={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}
-                                formatter={(val: number) => formatCurrency(val)}
+                                formatter={(val: number | undefined) => formatCurrency(val ?? 0)}
                             />
                             <Bar dataKey="margin" name="Margem" fill="var(--success)" radius={[0, 4, 4, 0]} barSize={20} />
                         </BarChart>
@@ -92,7 +92,7 @@ export function DashboardCharts({ data }: DashboardChartsProps) {
                             </Pie>
                             <Tooltip
                                 contentStyle={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border-subtle)', color: 'var(--text-primary)' }}
-                                formatter={(val: number) => formatCurrency(val)}
+                                formatter={(val: number | undefined) => formatCurrency(val ?? 0)}
                             />
                             <Legend
                                 layout="horizontal"
