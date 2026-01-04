@@ -77,8 +77,11 @@ export default async function DashboardPage({
                 </div>
             </div>
 
-            <DashboardCharts data={chartsData} />
+            {/* Summary Table */}
             <DashboardSummary data={summaryData} userRole={userRole} />
+
+            {/* Charts Section */}
+            <DashboardCharts data={chartsData} />
         </div>
     )
 }
