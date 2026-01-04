@@ -85,10 +85,30 @@ async function getDreData(
     if (filters.companyId && filters.companyId !== 'all') {
         andConditions.push({
             OR: [
-                { companyId: filters.companyId },
+                // 1. Hierarchy Match (Trust this over direct ID)
                 { grouping: { companyId: filters.companyId } },
                 { costCenter: { grouping: { companyId: filters.companyId } } },
-                { segment: { grouping: { companyId: filters.companyId } } }
+                { segment: { grouping: { companyId: filters.companyId } } },
+
+                // 2. Direct Match Fallback: Only if hierarchy is silent (null or not assigned)
+                // This prevents "Company 001" from grabbing entries that belong to "002" via hierarchy
+                {
+                    // Case A: No hierarchy linked at all
+                    companyId: filters.companyId,
+                    groupingId: null,
+                    costCenterId: null,
+                    segmentId: null
+                },
+                {
+                    // Case B: Hierarchy exists but has no Company assigned (Generic Department)
+                    companyId: filters.companyId,
+                    grouping: { companyId: null }
+                },
+                {
+                    // Case C: Cost Center exists but Department has no Company
+                    companyId: filters.companyId,
+                    costCenter: { grouping: { companyId: null } }
+                }
             ]
         })
     }
