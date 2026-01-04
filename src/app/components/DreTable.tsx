@@ -218,7 +218,7 @@ export function DreTable({ initialData, tenantId, year, availableCompanies, filt
 
         let targetCompanyId = filters.companyId
 
-        if (!targetCompanyId) {
+        if (!targetCompanyId || targetCompanyId === 'all') {
             if (availableCompanies.length > 0) {
                 targetCompanyId = availableCompanies[0].id
             } else {
