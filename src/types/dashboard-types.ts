@@ -30,3 +30,8 @@ export type SummaryRow = {
     children?: SummaryRow[] // For Company -> CostCenter hierarchy
     debugInfo?: string
 }
+
+export type ChartData = {
+    revenueByClient: { name: string; value: number; margin: number }[]
+    revenueByCompany: { name: string; value: number; percent: number }[]
+}
