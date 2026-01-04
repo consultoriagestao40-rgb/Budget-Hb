@@ -30,29 +30,43 @@ export async function verifyPermission(
 
     // 2. Cost Center Level Check
     if (context.costCenterId && context.costCenterId !== 'all') {
-        const hasCCRestrictions = perms.some(p => p.costCenterId !== null)
+        const specificCCPerm = perms.find(p => p.costCenterId === context.costCenterId)
 
-        if (hasCCRestrictions) {
-            const ccPerm = perms.find(p => p.costCenterId === context.costCenterId)
-            // If restricted to specific CCs, and this one is not in list -> Deny
-            if (!ccPerm) return false
-
-            // If found, check action flag
-            if (!ccPerm[action]) return false
+        if (specificCCPerm) {
+            // Explicit rule for this CC takes precedence
+            if (!specificCCPerm[action]) return false
         } else {
-            // No CC restrictions, so if Company check passed, we are good.
-            // (Implied access to all CCs in the permitted company)
+            // No specific rule. Check if we are in "Strict Mode".
+            // Strict Mode = User has at least one CC restriction AND NO broad company permission?
+            // BETTER LOGIC: If no specific rule, fallback to Broad/Company rule.
+            // Find a permission for this company that has NO CC restriction (is Global)
+            const broadPerm = perms.find(p => p.companyId === context.companyId && p.costCenterId === null)
+            if (!broadPerm) return false // No broad permission either -> Deny
+            if (!broadPerm[action]) return false
         }
     }
 
     // 3. Segment Level Check (Centro de Despesa)
     if (context.segmentId && context.segmentId !== 'all') {
-        const hasSegmentRestrictions = perms.some(p => p.segmentId !== null)
+        const specificSegmentPerm = perms.find(p => p.segmentId === context.segmentId)
 
-        if (hasSegmentRestrictions) {
-            const segmentPerm = perms.find(p => p.segmentId === context.segmentId)
-            if (!segmentPerm) return false
-            if (!segmentPerm[action]) return false
+        if (specificSegmentPerm) {
+            if (!specificSegmentPerm[action]) return false
+        } else {
+            // Fallback to Broad Permission (Company or CC level) that has NO segment restriction
+            // We need a perm that covers the current hierarchy but has segmentId = null
+            // For simplicity: Check if there is ANY permission allowing this context with segmentId=null
+
+            // Filter perms that match the current Company/CC context (or are broad enough)
+            const applicableBroadPerms = perms.filter(p =>
+                (p.companyId === context.companyId) &&
+                (p.costCenterId === null || p.costCenterId === context.costCenterId) &&
+                (p.segmentId === null)
+            )
+
+            // If any of these broad perms allow the action, we are good.
+            const hasBroadAccess = applicableBroadPerms.some(p => p[action])
+            if (!hasBroadAccess) return false
         }
     }
 
