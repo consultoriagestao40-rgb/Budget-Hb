@@ -229,167 +229,181 @@ export default async function DrePage({
 }: {
     searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
-    const resolvedParams = await searchParams
-    const companyId = resolvedParams.companyId as string | undefined
-    const costCenterId = resolvedParams.costCenterId as string | undefined
-    const clientId = resolvedParams.clientId as string | undefined
-    const segmentId = resolvedParams.segmentId as string | undefined
-    const ccSegmentId = resolvedParams.ccSegmentId as string | undefined
-    const departmentId = resolvedParams.departmentId as string | undefined
-    const cityId = resolvedParams.cityId as string | undefined
-    const state = resolvedParams.state as string | undefined
-
-    const yearParam = resolvedParams.year as string | undefined
-    const currentYear = yearParam ? parseInt(yearParam) : 2025
-
-    const session = await getIronSession<SessionData>(await cookies(), sessionOptions)
-    if (!session.isLoggedIn) {
-        redirect('/login')
-    }
-
-    const tenantId = session.tenantId
-
-    // Get User Permissions
-    // Get User Permissions with Defensive Fallback
-    let user;
     try {
-        user = await prisma.user.findUnique({
-            where: { id: session.userId },
-            include: {
-                permissions: {
-                    select: {
-                        companyId: true,
-                        costCenterId: true,
-                        segmentId: true,
-                        canView: true
+        const resolvedParams = await searchParams
+        const companyId = resolvedParams.companyId as string | undefined
+        const costCenterId = resolvedParams.costCenterId as string | undefined
+        const clientId = resolvedParams.clientId as string | undefined
+        const segmentId = resolvedParams.segmentId as string | undefined
+        const ccSegmentId = resolvedParams.ccSegmentId as string | undefined
+        const departmentId = resolvedParams.departmentId as string | undefined
+        const cityId = resolvedParams.cityId as string | undefined
+        const state = resolvedParams.state as string | undefined
+
+        const yearParam = resolvedParams.year as string | undefined
+        const currentYear = yearParam ? parseInt(yearParam) : 2025
+
+        const session = await getIronSession<SessionData>(await cookies(), sessionOptions)
+        if (!session.isLoggedIn) {
+            redirect('/login')
+        }
+
+        const tenantId = session.tenantId
+
+        // Get User Permissions
+        // Get User Permissions with Defensive Fallback
+        let user;
+        try {
+            user = await prisma.user.findUnique({
+                where: { id: session.userId },
+                include: {
+                    permissions: {
+                        select: {
+                            companyId: true,
+                            costCenterId: true,
+                            segmentId: true,
+                            canView: true
+                        }
                     }
                 }
-            }
-        })
-    } catch (error) {
-        console.error("Error fetching permissions with segmentId in DRE:", error)
-        // Fallback: Fetch without segmentId if schema mismatch occurs
-        user = await prisma.user.findUnique({
-            where: { id: session.userId },
-            include: {
-                permissions: {
-                    select: {
-                        companyId: true,
-                        costCenterId: true,
-                        // segmentId omitted
-                        canView: true
+            })
+        } catch (error) {
+            console.error("Error fetching permissions with segmentId in DRE:", error)
+            // Fallback: Fetch without segmentId if schema mismatch occurs
+            user = await prisma.user.findUnique({
+                where: { id: session.userId },
+                include: {
+                    permissions: {
+                        select: {
+                            companyId: true,
+                            costCenterId: true,
+                            // segmentId omitted
+                            canView: true
+                        }
                     }
                 }
-            }
+            })
+        }
+
+        // Cast to any to bypass TS error if schema type is outdated in editor
+        const userTyped = user as any
+
+        // @ts-ignore - Prisma include inference
+        const permissions = userTyped?.permissions || []
+
+        const allowedCompanyIds = permissions.filter((p: any) => p.companyId).map((p: any) => p.companyId!)
+        const allowedCostCenterIds = permissions.filter((p: any) => p.costCenterId).map((p: any) => p.costCenterId!)
+        const allowedSegmentIds = permissions.filter((p: any) => p.segmentId).map((p: any) => p.segmentId!)
+
+        const companyFilter: any = { tenantId }
+        if (allowedCompanyIds.length > 0) {
+            companyFilter.id = { in: allowedCompanyIds }
+        }
+
+        const costCenterFilter: any = { tenantId }
+        if (allowedCostCenterIds.length > 0) {
+            costCenterFilter.id = { in: allowedCostCenterIds }
+        }
+
+        // Security Check: Deny if no permissions and not Admin
+        const hasAnyPermission = allowedCompanyIds.length > 0 || allowedCostCenterIds.length > 0 || allowedSegmentIds.length > 0
+        if (!hasAnyPermission && user?.role !== 'ADMIN') {
+            // Return empty view immediately
+            return (
+                <div className="flex items-center justify-center h-screen text-[var(--text-secondary)]">
+                    Acesso negado. Nenhuma permissão atribuída.
+                </div>
+            )
+        }
+
+        // Version Logic
+        const budgetVersions = await prisma.budgetVersion.findMany({
+            where: { tenantId },
+            orderBy: { createdAt: 'asc' }
         })
-    }
+        const versionParam = resolvedParams.versionId as string | undefined
+        const activeVersionId = (versionParam && budgetVersions.find(v => v.id === versionParam))
+            ? versionParam
+            : (budgetVersions[0]?.id || '')
 
-    // Cast to any to bypass TS error if schema type is outdated in editor
-    const userTyped = user as any
+        // 1. Fetch Tenant Config FIRST to ensure safe year
+        const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } })
+        const tMin = tenant?.minYear || 2024
+        const tMax = tenant?.maxYear || 2027
 
-    // @ts-ignore - Prisma include inference
-    const permissions = userTyped?.permissions || []
+        // Clamp Year - Ensure we never fetch/render data for an invalid year
+        const effectiveYear = Math.min(Math.max(currentYear, tMin), tMax)
 
-    const allowedCompanyIds = permissions.filter((p: any) => p.companyId).map((p: any) => p.companyId!)
-    const allowedCostCenterIds = permissions.filter((p: any) => p.costCenterId).map((p: any) => p.costCenterId!)
-    const allowedSegmentIds = permissions.filter((p: any) => p.segmentId).map((p: any) => p.segmentId!)
+        // 2. Fetch Data using SAFE effectiveYear
+        let [data, companies, costCenters, clients, segments, ccSegments, cities, departments] = await Promise.all([
+            getDreData(tenantId, effectiveYear, {
+                companyId, costCenterId, clientId, versionId: activeVersionId,
+                segmentId, ccSegmentId, departmentId, cityId, state
+            }, {
+                allowedCompanyIds: allowedCompanyIds.length > 0 ? allowedCompanyIds : undefined,
+                allowedCostCenterIds: allowedCostCenterIds.length > 0 ? allowedCostCenterIds : undefined,
+                allowedSegmentIds: allowedSegmentIds.length > 0 ? allowedSegmentIds : undefined
+            }),
+            prisma.company.findMany({ where: companyFilter }),
+            prisma.costCenter.findMany({ where: costCenterFilter }),
+            prisma.client.findMany({ where: { tenantId } }),
+            prisma.segment.findMany({ where: { tenantId } }),
+            prisma.costCenterSegment.findMany({ where: { tenantId } }),
+            prisma.city.findMany({ where: { tenantId } }),
+            prisma.grouping.findMany({ where: { tenantId } }), // Departments
+        ])
 
-    const companyFilter: any = { tenantId }
-    if (allowedCompanyIds.length > 0) {
-        companyFilter.id = { in: allowedCompanyIds }
-    }
+        // SECURITY: Limit Lines for Non-Admins
+        if (user?.role !== 'ADMIN') {
+            // Universal Rule: Show lines 1 to 7 (Operational). Hide 8+ (Financial/Result)
+            data = data.filter(row => {
+                if (!row.code) return true // Headers?
+                // Parse first part of code (e.g., "7.1" -> 7)
+                const mainGroup = parseInt(row.code.split('.')[0], 10)
+                return !isNaN(mainGroup) && mainGroup < 8
+            })
+        }
 
-    const costCenterFilter: any = { tenantId }
-    if (allowedCostCenterIds.length > 0) {
-        costCenterFilter.id = { in: allowedCostCenterIds }
-    }
+        // Extract unique states
+        const states = Array.from(new Set(cities.filter(c => c.state).map(c => c.state!))).sort()
 
-    // Security Check: Deny if no permissions and not Admin
-    const hasAnyPermission = allowedCompanyIds.length > 0 || allowedCostCenterIds.length > 0 || allowedSegmentIds.length > 0
-    if (!hasAnyPermission && user?.role !== 'ADMIN') {
-        // Return empty view immediately
         return (
-            <div className="flex items-center justify-center h-screen text-[var(--text-secondary)]">
-                Acesso negado. Nenhuma permissão atribuída.
+            <DreView
+                initialData={data}
+                tenantId={tenantId}
+                dreTitle={tenant?.dreTitle || "Demonstrativo de Resultados (DRE)"}
+                currentYear={effectiveYear} // Pass effective year
+                versions={budgetVersions}
+                currentVersionId={activeVersionId}
+                minYear={tMin}
+                maxYear={tMax}
+
+                // Filter Data
+                companies={companies}
+                departments={departments}
+                costCenters={costCenters}
+                clients={clients}
+                segments={segments}
+                ccSegments={ccSegments}
+                cities={cities}
+                states={states}
+
+                filters={{ companyId, departmentId, costCenterId, clientId, segmentId, ccSegmentId }}
+                userRole={user?.role || 'USER'}
+                userPermissions={permissions}
+            />
+        )
+    } catch (e: any) {
+        return (
+            <div className="p-8 border-2 border-red-500 rounded bg-red-900/10 text-red-500">
+                <h2 className="text-xl font-bold mb-2">Erro de Renderização (RSC Crash)</h2>
+                <p className="font-mono text-sm whitespace-pre-wrap">
+                    {e?.message || 'Erro desconhecido'}
+                </p>
+                <p className="mt-4 text-xs text-red-400">
+                    Stack: {e?.stack?.substring(0, 500)}
+                </p>
             </div>
         )
     }
-
-    // Version Logic
-    const budgetVersions = await prisma.budgetVersion.findMany({
-        where: { tenantId },
-        orderBy: { createdAt: 'asc' }
-    })
-    const versionParam = resolvedParams.versionId as string | undefined
-    const activeVersionId = (versionParam && budgetVersions.find(v => v.id === versionParam))
-        ? versionParam
-        : (budgetVersions[0]?.id || '')
-
-    // 1. Fetch Tenant Config FIRST to ensure safe year
-    const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } })
-    const tMin = tenant?.minYear || 2024
-    const tMax = tenant?.maxYear || 2027
-
-    // Clamp Year - Ensure we never fetch/render data for an invalid year
-    const effectiveYear = Math.min(Math.max(currentYear, tMin), tMax)
-
-    // 2. Fetch Data using SAFE effectiveYear
-    let [data, companies, costCenters, clients, segments, ccSegments, cities, departments] = await Promise.all([
-        getDreData(tenantId, effectiveYear, {
-            companyId, costCenterId, clientId, versionId: activeVersionId,
-            segmentId, ccSegmentId, departmentId, cityId, state
-        }, {
-            allowedCompanyIds: allowedCompanyIds.length > 0 ? allowedCompanyIds : undefined,
-            allowedCostCenterIds: allowedCostCenterIds.length > 0 ? allowedCostCenterIds : undefined,
-            allowedSegmentIds: allowedSegmentIds.length > 0 ? allowedSegmentIds : undefined
-        }),
-        prisma.company.findMany({ where: companyFilter }),
-        prisma.costCenter.findMany({ where: costCenterFilter }),
-        prisma.client.findMany({ where: { tenantId } }),
-        prisma.segment.findMany({ where: { tenantId } }),
-        prisma.costCenterSegment.findMany({ where: { tenantId } }),
-        prisma.city.findMany({ where: { tenantId } }),
-        prisma.grouping.findMany({ where: { tenantId } }), // Departments
-    ])
-
-    // SECURITY: Limit Lines for Non-Admins
-    if (user?.role !== 'ADMIN') {
-        // Universal Rule: Show lines 1 to 7 (Operational). Hide 8+ (Financial/Result)
-        data = data.filter(row => {
-            if (!row.code) return true // Headers?
-            // Parse first part of code (e.g., "7.1" -> 7)
-            const mainGroup = parseInt(row.code.split('.')[0], 10)
-            return !isNaN(mainGroup) && mainGroup < 8
-        })
-    }
-
-    // Extract unique states
-    const states = Array.from(new Set(cities.filter(c => c.state).map(c => c.state!))).sort()
-
-    return (
-        <DreView
-            initialData={data}
-            tenantId={tenantId}
-            dreTitle={tenant?.dreTitle || "Demonstrativo de Resultados (DRE)"}
-            currentYear={effectiveYear} // Pass effective year
-            versions={budgetVersions}
-            currentVersionId={activeVersionId}
-            minYear={tMin}
-            maxYear={tMax}
-
-            // Filter Data
-            companies={companies}
-            departments={departments}
-            costCenters={costCenters}
-            clients={clients}
-            segments={segments}
-            ccSegments={ccSegments}
-            cities={cities}
-            states={states}
-
-            filters={{ companyId, departmentId, costCenterId, clientId, segmentId, ccSegmentId }}
-            userRole={user?.role || 'USER'}
-            userPermissions={permissions}
-        />
-    )
 }
