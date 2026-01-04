@@ -310,7 +310,6 @@ export async function getDashboardChartsData(year: number, versionId?: string) {
         const code = e.account.code
         const val = e.amount
         const clientId = effectiveClientId
-        const clientName = e.client.name
 
         if (!clientMap.has(clientId)) clientMap.set(clientId, { revenue: 0, costs: 0, deductions: 0 })
         const curr = clientMap.get(clientId)!
