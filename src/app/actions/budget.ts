@@ -100,12 +100,17 @@ export async function batchUpdateBudgetEntries(
     if (!session.isLoggedIn || session.tenantId !== tenantId) throw new Error('Unauthorized')
 
     // Verify and Sanitize Dimensions
+    // Enforce empty strings to null for optional FKs to avoid "foreign key constraint failed" on empty strings
     const safeDimensions = {
-        companyId: dimensions.companyId === 'all' ? '' : dimensions.companyId, // Company is required usually, but handle safe
-        costCenterId: dimensions.costCenterId === 'all' ? null : dimensions.costCenterId,
-        clientId: dimensions.clientId === 'all' ? null : dimensions.clientId,
-        groupingId: dimensions.groupingId === 'all' ? null : dimensions.groupingId,
-        segmentId: dimensions.segmentId === 'all' ? null : dimensions.segmentId
+        companyId: dimensions.companyId === 'all' ? '' : dimensions.companyId,
+        costCenterId: (dimensions.costCenterId === 'all' || dimensions.costCenterId === '') ? null : dimensions.costCenterId,
+        clientId: (dimensions.clientId === 'all' || dimensions.clientId === '') ? null : dimensions.clientId,
+        groupingId: (dimensions.groupingId === 'all' || dimensions.groupingId === '') ? null : dimensions.groupingId,
+        segmentId: (dimensions.segmentId === 'all' || dimensions.segmentId === '') ? null : dimensions.segmentId
+    }
+
+    if (!safeDimensions.companyId) {
+        throw new Error('Database Error: Company ID is required for saving.')
     }
 
     if (session.role !== 'ADMIN') {
