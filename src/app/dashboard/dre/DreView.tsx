@@ -90,7 +90,7 @@ export function DreView({
     const maxWidth = `calc(100vw - ${sidebarWidth + padding + buffer}px)`
 
     return (
-        <div className="space-y-4 flex flex-col h-[calc(100vh-100px)] w-full">
+        <div className="space-y-4 flex flex-col h-[calc(100vh-20px)] w-full">
             {/* Header Area */}
             <div className="flex justify-between items-center shrink-0">
                 <div className="flex items-center gap-4">
