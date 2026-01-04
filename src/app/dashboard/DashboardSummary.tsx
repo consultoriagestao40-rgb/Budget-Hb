@@ -63,14 +63,17 @@ export function DashboardSummary({ data, userRole }: DashboardSummaryProps) {
         </div>
     )
 
-    const columnCount = showFinancials ? 10 : 4
-    const gridStyle = { gridTemplateColumns: `300px repeat(${columnCount}, minmax(160px, 1fr))` }
+    // Grid Columns Config
+    // Admin: 10 Data Columns + 1 Name Column
+    // User: 4 Data Columns + 1 Name Column (Up to Margem Bruta)
+    const gridClass = showFinancials
+        ? 'grid-cols-[300px_repeat(10,minmax(160px,1fr))]'
+        : 'grid-cols-[300px_repeat(4,minmax(160px,1fr))]'
 
     const TableRow = ({ name, metrics, depth = 0, hasChildren = false, isExpanded = false, onToggle, debugInfo }: { name: string, metrics: DashboardMetric, depth?: number, hasChildren?: boolean, isExpanded?: boolean, onToggle?: () => void, debugInfo?: string }) => {
         return (
             <div
-                className={`grid gap-4 py-3 px-4 border-b border-[var(--border-color)] items-center hover:bg-[var(--bg-surface-hover)] transition-colors min-w-max ${depth > 0 ? 'bg-[var(--bg-secondary)]/30' : ''}`}
-                style={gridStyle}
+                className={`grid gap-4 py-3 px-4 border-b border-[var(--border-color)] items-center hover:bg-[var(--bg-surface-hover)] transition-colors min-w-max ${gridClass} ${depth > 0 ? 'bg-[var(--bg-secondary)]/30' : ''}`}
             >
 
                 {/* Name / Tree Toggle (Sticky Left) */}
@@ -123,8 +126,7 @@ export function DashboardSummary({ data, userRole }: DashboardSummaryProps) {
                 <div className="min-w-max">
                     {/* Header */}
                     <div
-                        className="grid gap-4 px-4 py-3 bg-[var(--bg-surface-hover)] border-b border-[var(--border-color)] text-xs font-bold uppercase text-[var(--text-secondary)] tracking-wider"
-                        style={gridStyle}
+                        className={`grid gap-4 px-4 py-3 bg-[var(--bg-surface-hover)] border-b border-[var(--border-color)] text-xs font-bold uppercase text-[var(--text-secondary)] tracking-wider ${gridClass}`}
                     >
                         <div className="sticky left-0 z-20 bg-[var(--bg-surface-hover)] -ml-4 pl-8 py-3 -my-3 border-r border-[var(--border-color)] flex items-center">Empresa / Centro</div>
                         <div className="text-right pr-4">Rec. Bruta</div>
