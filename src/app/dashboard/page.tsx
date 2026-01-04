@@ -68,7 +68,7 @@ export default async function DashboardPage({
                 </div>
             </div>
 
-            <DashboardSummary data={summaryData} />
+            <DashboardSummary data={summaryData} userRole={session.role || 'USER'} />
         </div>
     )
 }
