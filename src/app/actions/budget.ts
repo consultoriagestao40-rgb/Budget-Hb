@@ -115,48 +115,55 @@ export async function batchUpdateBudgetEntries(
         }
     }
 
-    await prisma.$transaction(async (tx) => {
-        for (const entry of entries) {
-            const existing = await tx.budgetEntry.findFirst({
-                where: {
-                    tenantId,
-                    accountId,
-                    month: entry.month,
-                    year,
-                    budgetVersionId,
-                    companyId: safeDimensions.companyId,
-                    costCenterId: safeDimensions.costCenterId,
-                    clientId: safeDimensions.clientId,
-                    groupingId: safeDimensions.groupingId,
-                    segmentId: safeDimensions.segmentId
-                }
-            })
-
-            if (existing) {
-                if (entry.amount === 0) {
-                    await tx.budgetEntry.delete({ where: { id: existing.id } })
-                } else {
-                    await tx.budgetEntry.update({ where: { id: existing.id }, data: { amount: entry.amount } })
-                }
-            } else if (entry.amount !== 0) {
-                await tx.budgetEntry.create({
-                    data: {
+    try {
+        await prisma.$transaction(async (tx) => {
+            for (const entry of entries) {
+                const existing = await tx.budgetEntry.findFirst({
+                    where: {
                         tenantId,
                         accountId,
                         month: entry.month,
                         year,
-                        amount: entry.amount,
                         budgetVersionId,
-                        companyId: safeDimensions.companyId!, // Assuming validated
+                        companyId: safeDimensions.companyId,
                         costCenterId: safeDimensions.costCenterId,
                         clientId: safeDimensions.clientId,
                         groupingId: safeDimensions.groupingId,
                         segmentId: safeDimensions.segmentId
                     }
                 })
+
+                if (existing) {
+                    if (entry.amount === 0) {
+                        await tx.budgetEntry.delete({ where: { id: existing.id } })
+                    } else {
+                        await tx.budgetEntry.update({ where: { id: existing.id }, data: { amount: entry.amount } })
+                    }
+                } else if (entry.amount !== 0) {
+                    await tx.budgetEntry.create({
+                        data: {
+                            tenantId,
+                            accountId,
+                            month: entry.month,
+                            year,
+                            amount: entry.amount,
+                            budgetVersionId,
+                            companyId: safeDimensions.companyId!, // Assuming validated
+                            costCenterId: safeDimensions.costCenterId,
+                            clientId: safeDimensions.clientId,
+                            groupingId: safeDimensions.groupingId,
+                            segmentId: safeDimensions.segmentId
+                        }
+                    })
+                }
             }
-        }
-    })
+        })
+    } catch (error: any) {
+        console.error('Batch Update Failed:', error)
+        // Unwrap Prisma Error
+        const msg = error.code ? `Database Error ${error.code}: ${error.meta?.target || error.message}` : error.message
+        throw new Error(msg)
+    }
 
     revalidatePath('/dashboard/dre')
 }
