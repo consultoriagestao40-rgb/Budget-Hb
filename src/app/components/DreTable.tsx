@@ -247,6 +247,8 @@ export function DreTable({ initialData, tenantId, year, availableCompanies, filt
             }
 
             setIsEditModalOpen(false)
+            // Manual reload to bypass revalidatePath crash for diagnosis
+            window.location.reload()
         } catch (error: any) {
             console.error('Save failed:', error)
             alert('Falha crítica: ' + (error.message || 'Erro de conexão'))
