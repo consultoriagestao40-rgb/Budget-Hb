@@ -63,9 +63,15 @@ export function DashboardSummary({ data, userRole }: DashboardSummaryProps) {
         </div>
     )
 
+    const columnCount = showFinancials ? 10 : 4
+    const gridStyle = { gridTemplateColumns: `300px repeat(${columnCount}, minmax(160px, 1fr))` }
+
     const TableRow = ({ name, metrics, depth = 0, hasChildren = false, isExpanded = false, onToggle, debugInfo }: { name: string, metrics: DashboardMetric, depth?: number, hasChildren?: boolean, isExpanded?: boolean, onToggle?: () => void, debugInfo?: string }) => {
         return (
-            <div className={`grid grid-cols-[300px_repeat(${showFinancials ? 10 : 6},minmax(160px,1fr))] gap-4 py-3 px-4 border-b border-[var(--border-color)] items-center hover:bg-[var(--bg-surface-hover)] transition-colors min-w-max ${depth > 0 ? 'bg-[var(--bg-secondary)]/30' : ''}`}>
+            <div
+                className={`grid gap-4 py-3 px-4 border-b border-[var(--border-color)] items-center hover:bg-[var(--bg-surface-hover)] transition-colors min-w-max ${depth > 0 ? 'bg-[var(--bg-secondary)]/30' : ''}`}
+                style={gridStyle}
+            >
 
                 {/* Name / Tree Toggle (Sticky Left) */}
                 <div
@@ -93,11 +99,11 @@ export function DashboardSummary({ data, userRole }: DashboardSummaryProps) {
                 <Cell value={metrics.netRevenue} percent={metrics.netRevenuePct} />
                 <Cell value={metrics.operationalCosts} percent={metrics.operationalCostsPct} />
                 <Cell value={metrics.grossMargin} percent={metrics.grossMarginPct} bold />
-                <Cell value={metrics.operationalExpenses} percent={metrics.operationalExpensesPct} />
-                <Cell value={metrics.grossProfit} percent={metrics.grossProfitPct} bold colorValue />
 
                 {showFinancials && (
                     <>
+                        <Cell value={metrics.operationalExpenses} percent={metrics.operationalExpensesPct} />
+                        <Cell value={metrics.grossProfit} percent={metrics.grossProfitPct} bold colorValue />
                         <Cell value={metrics.adminExpenses} percent={metrics.adminExpensesPct} />
                         <Cell value={metrics.ebitda} percent={metrics.ebitdaPct} bold />
                         <Cell value={metrics.financialExpenses} percent={metrics.financialExpensesPct} />
@@ -116,17 +122,20 @@ export function DashboardSummary({ data, userRole }: DashboardSummaryProps) {
             <div className="overflow-x-auto pb-2 scrollbar-thin"> {/* Added pb-2 for scrollbar spacing */}
                 <div className="min-w-max">
                     {/* Header */}
-                    <div className={`grid grid-cols-[300px_repeat(${showFinancials ? 10 : 6},minmax(160px,1fr))] gap-4 px-4 py-3 bg-[var(--bg-surface-hover)] border-b border-[var(--border-color)] text-xs font-bold uppercase text-[var(--text-secondary)] tracking-wider`}>
+                    <div
+                        className="grid gap-4 px-4 py-3 bg-[var(--bg-surface-hover)] border-b border-[var(--border-color)] text-xs font-bold uppercase text-[var(--text-secondary)] tracking-wider"
+                        style={gridStyle}
+                    >
                         <div className="sticky left-0 z-20 bg-[var(--bg-surface-hover)] -ml-4 pl-8 py-3 -my-3 border-r border-[var(--border-color)] flex items-center">Empresa / Centro</div>
                         <div className="text-right pr-4">Rec. Bruta</div>
                         <div className="text-right pr-4">Rec. Líquida</div>
                         <div className="text-right pr-4">Custos Op.</div>
                         <div className="text-right pr-4">Margem Bruta</div>
-                        <div className="text-right pr-4">Desp. Op.</div>
-                        <div className="text-right pr-4">Lucro Bruto</div>
 
                         {showFinancials && (
                             <>
+                                <div className="text-right pr-4">Desp. Op.</div>
+                                <div className="text-right pr-4">Lucro Bruto</div>
                                 <div className="text-right pr-4">Desp. Adm.</div>
                                 <div className="text-right pr-4">EBITDA</div>
                                 <div className="text-right pr-4">Desp. Fin.</div>
