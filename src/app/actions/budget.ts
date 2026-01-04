@@ -167,8 +167,9 @@ export async function batchUpdateBudgetEntries(
         console.error('Batch Update Failed:', error)
         // Unwrap Prisma Error
         const msg = error.code ? `Database Error ${error.code}: ${error.meta?.target || error.message}` : error.message
-        throw new Error(msg)
+        return { success: false, error: msg }
     }
 
     revalidatePath('/dashboard/dre')
+    return { success: true }
 }

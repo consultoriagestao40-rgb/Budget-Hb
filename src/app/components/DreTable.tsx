@@ -233,17 +233,23 @@ export function DreTable({ initialData, tenantId, year, availableCompanies, filt
         }))
 
         try {
-            await batchUpdateBudgetEntries(tenantId, editTarget.id, year, entries, activeVersionId, {
+            const result = await batchUpdateBudgetEntries(tenantId, editTarget.id, year, entries, activeVersionId, {
                 companyId: targetCompanyId!,
                 costCenterId: filters.costCenterId,
                 clientId: filters.clientId,
                 groupingId: filters.departmentId,
                 segmentId: filters.segmentId
             })
+
+            if (result && !result.success) {
+                alert('Falha ao salvar: ' + (result.error || 'Erro desconhecido'))
+                return
+            }
+
             setIsEditModalOpen(false)
         } catch (error: any) {
             console.error('Save failed:', error)
-            alert('Falha ao salvar: ' + (error.message || 'Erro desconhecido. Tente novamente.'))
+            alert('Falha crítica: ' + (error.message || 'Erro de conexão'))
         }
     }
 
