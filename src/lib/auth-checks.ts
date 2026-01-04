@@ -21,10 +21,23 @@ export async function verifyPermission(
 
     if (perms.length === 0) return false
 
-    // 1. Company Level Check
+    // 1. Company Level Check & Global Short-circuit
     if (context.companyId && context.companyId !== 'all') {
         const companyPerm = perms.find(p => p.companyId === context.companyId)
         if (!companyPerm) return false
+
+        // If user has a "Global" permission for this company (no CC/Segment validation needed), 
+        // and it allows the action, return TRUE immediately.
+        // This covers "Admins" defined via UserPermission logic (null/null)
+        const isGlobalPerm = perms.find(p =>
+            p.companyId === context.companyId &&
+            p.costCenterId === null &&
+            p.segmentId === null
+        )
+        if (isGlobalPerm && isGlobalPerm[action]) {
+            return true
+        }
+
         if (!companyPerm[action]) return false
     }
 
