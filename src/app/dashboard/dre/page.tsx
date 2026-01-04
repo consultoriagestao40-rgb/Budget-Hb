@@ -83,14 +83,7 @@ async function getDreData(
 
     // Company Filter
     if (filters.companyId && filters.companyId !== 'all') {
-        andConditions.push({
-            OR: [
-                { companyId: filters.companyId },
-                { grouping: { companyId: filters.companyId } },
-                { costCenter: { grouping: { companyId: filters.companyId } } },
-                { segment: { grouping: { companyId: filters.companyId } } }
-            ]
-        })
+        andConditions.push({ companyId: filters.companyId })
     }
 
     // Cost Center Filter
