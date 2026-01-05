@@ -145,17 +145,19 @@ export function DreView({
             </div>
 
             {/* Horizontal Filter Bar */}
-            <HorizontalFilterBar
-                companies={companies}
-                departments={departments} // NEW
-                costCenters={costCenters}
-                clients={clients}
-                segments={segments}
-                ccSegments={ccSegments}
-                cities={cities}
-                states={states}
-                userRole={userRole}
-            />
+            <div style={{ width: '100%', maxWidth: maxWidth }}>
+                <HorizontalFilterBar
+                    companies={companies}
+                    departments={departments} // NEW
+                    costCenters={costCenters}
+                    clients={clients}
+                    segments={segments}
+                    ccSegments={ccSegments}
+                    cities={cities}
+                    states={states}
+                    userRole={userRole}
+                />
+            </div>
 
             {/* Main Content Wrapper - strictly constrained */}
             <div
