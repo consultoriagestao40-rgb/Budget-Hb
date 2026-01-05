@@ -327,9 +327,9 @@ export function DreTable({ initialData, tenantId, year, availableCompanies, filt
         <div className="flex flex-col h-full">
             <div className="flex-1 overflow-auto w-full relative">
                 <table className="text-left border-collapse min-w-[2000px]">
-                    <thead>
+                    <thead className="sticky top-0 z-30 shadow-md">
                         <tr className="bg-[var(--bg-main)] text-xs uppercase tracking-wider text-[var(--text-secondary)] font-semibold border-b border-[var(--border-subtle)]">
-                            <th className="py-4 px-4 sticky left-0 bg-[var(--bg-main)] z-20 w-[350px] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.5)] border-r border-[var(--border-subtle)]">Conta / Descrição</th>
+                            <th className="py-4 px-4 sticky left-0 bg-[var(--bg-main)] z-40 w-[350px] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.5)] border-r border-[var(--border-subtle)]">Conta / Descrição</th>
                             {MONTHS.map(m => (
                                 <th key={m} className="px-2 py-4 text-right min-w-[100px]">{m}</th>
                             ))}
