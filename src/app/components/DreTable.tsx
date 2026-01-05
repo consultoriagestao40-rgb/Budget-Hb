@@ -4,7 +4,7 @@
 import { useState } from 'react'
 import type { DreRow } from '@/types/dre'
 import { batchUpdateBudgetEntries } from '@/app/actions/budget'
-import { createAccount, deleteAccount, updateAccount } from '@/app/actions/account'
+import { deleteAccount, updateAccount } from '@/app/actions/account'
 import { Modal } from './Modal'
 import { ConfirmationModal } from './ConfirmationModal'
 import { BudgetEditModal } from './BudgetEditModal'
@@ -12,7 +12,7 @@ import { Maximize2, Minimize2 } from 'lucide-react'
 
 const MONTHS = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ']
 
-export function DreTable({ initialData, tenantId, year, availableCompanies, filters = {}, activeVersionId, userRole, userPermissions }: {
+export function DreTable({ initialData, tenantId, year, availableCompanies, filters = {}, activeVersionId, userRole, userPermissions, onAddSubAccount }: {
     initialData: DreRow[],
     tenantId: string,
     year: number,
@@ -28,13 +28,9 @@ export function DreTable({ initialData, tenantId, year, availableCompanies, filt
     activeVersionId: string
     userRole: string
     userPermissions: any[]
+    onAddSubAccount: (parent: { id: string, code: string }, suggestedCode: string) => void
 }) {
-    // State for Create Account
-    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
-    const [targetParent, setTargetParent] = useState<{ id: string, code: string } | null>(null)
-    const [newAccountName, setNewAccountName] = useState('')
-    const [newAccountCode, setNewAccountCode] = useState('')
-    const [newAccountType, setNewAccountType] = useState<'INPUT' | 'CALCULATED'>('INPUT')
+
 
     // State for Edit Account Properties
     const [isEditPropsModalOpen, setIsEditPropsModalOpen] = useState(false)
@@ -116,21 +112,10 @@ export function DreTable({ initialData, tenantId, year, availableCompanies, filt
         }
         const suggestedCode = `${row.code}.${nextNumber}`
 
-        setTargetParent({ id: row.id, code: row.code })
-        setNewAccountCode(suggestedCode)
-        setNewAccountName('')
-        setNewAccountType('INPUT')
-        setIsCreateModalOpen(true)
+        onAddSubAccount({ id: row.id, code: row.code }, suggestedCode)
     }
 
-    const handleAddRootClick = () => {
-        if (!canManageStructure) return
-        setTargetParent(null)
-        setNewAccountCode('')
-        setNewAccountName('')
-        setNewAccountType('CALCULATED') // Default to Calculated for roots usually
-        setIsCreateModalOpen(true)
-    }
+
 
     const handleEditPropsClick = (row: DreRow) => {
         if (!canManageStructure) return
@@ -167,27 +152,7 @@ export function DreTable({ initialData, tenantId, year, availableCompanies, filt
         })
     }
 
-    const handleCreateAccount = async () => {
-        if (!newAccountName || !newAccountCode) return
 
-        try {
-            await createAccount({
-                tenantId,
-                name: newAccountName,
-                code: newAccountCode,
-                type: newAccountType,
-                parentId: targetParent?.id // undefined if root
-            })
-            setIsCreateModalOpen(false)
-        } catch (error: any) {
-            console.error('Create failed:', error)
-            if (error.message.includes('Unique constraint') || error.message.includes('code')) {
-                alert('Erro: Já existe uma conta com este Código. Por favor, escolha outro (ex: 1.3).')
-            } else {
-                alert(error.message || 'Erro ao criar conta')
-            }
-        }
-    }
 
     const handleUpdateAccount = async () => {
         if (!editPropsTarget) return
@@ -367,14 +332,7 @@ export function DreTable({ initialData, tenantId, year, availableCompanies, filt
             <div className="p-4 border-b border-[var(--border-subtle)] bg-[var(--bg-surface)] flex justify-between items-center sticky left-0 z-20">
                 <div className="flex items-center gap-4">
                     <span className="text-sm text-[var(--text-secondary)]">Estrutura de Contas</span>
-                    {canManageStructure && (
-                        <button
-                            onClick={handleAddRootClick}
-                            className="btn btn-primary text-xs flex items-center gap-1"
-                        >
-                            <span>+</span> Nova Conta Principal
-                        </button>
-                    )}
+
                 </div>
 
                 <button
@@ -411,49 +369,7 @@ export function DreTable({ initialData, tenantId, year, availableCompanies, filt
                 </table>
             </div>
 
-            <Modal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} title={targetParent ? "Nova Sub-conta" : "Nova Conta Principal"}>
-                <div className="space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium mb-1 text-[var(--text-secondary)]">Tipo de Conta</label>
-                        <select
-                            value={newAccountType}
-                            onChange={(e) => setNewAccountType(e.target.value as 'INPUT' | 'CALCULATED')}
-                            className="input-outline bg-[var(--bg-main)]"
-                        >
-                            <option value="INPUT">Entrada (Valor)</option>
-                            <option value="CALCULATED">Consolidado (Soma/Pasta)</option>
-                        </select>
-                        <p className="text-xs text-[var(--text-muted)] mt-1">
-                            {newAccountType === 'INPUT' ? 'Permite inserir valores mensais manualmente.' : 'Soma automaticamente as sub-contas. Não aceita valores manuais.'}
-                        </p>
-                    </div>
 
-                    <div>
-                        <label className="block text-sm font-medium mb-1 text-[var(--text-secondary)]">Código</label>
-                        <input
-                            type="text"
-                            value={newAccountCode}
-                            onChange={e => setNewAccountCode(e.target.value)}
-                            className="input-outline"
-                            placeholder={targetParent ? `${targetParent.code}.1` : "1.0"}
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium mb-1 text-[var(--text-secondary)]">Nome</label>
-                        <input
-                            type="text"
-                            value={newAccountName}
-                            onChange={e => setNewAccountName(e.target.value)}
-                            className="input-outline"
-                            placeholder="Ex: Receita Operacional"
-                        />
-                    </div>
-                    <div className="flex justify-end gap-2 mt-6">
-                        <button onClick={() => setIsCreateModalOpen(false)} className="btn btn-ghost">Cancelar</button>
-                        <button onClick={handleCreateAccount} className="btn btn-primary">Criar Conta</button>
-                    </div>
-                </div>
-            </Modal>
 
             {editPropsTarget && (
                 <Modal isOpen={isEditPropsModalOpen} onClose={() => setIsEditPropsModalOpen(false)} title="Editar Conta">

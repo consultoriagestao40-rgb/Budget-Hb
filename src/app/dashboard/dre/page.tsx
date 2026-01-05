@@ -107,6 +107,11 @@ async function getDreData(
                     // Case C: Cost Center exists but Department has no Company
                     companyId: { in: filters.companyIds },
                     costCenter: { grouping: { companyId: null } }
+                },
+                {
+                    // Case D: Cost Center exists but has NO Department (Direct Link)
+                    companyId: { in: filters.companyIds },
+                    costCenter: { groupingId: null }
                 }
             ]
         })
@@ -334,7 +339,7 @@ export default async function DrePage({
 
     // Security Check: Deny if no permissions and not Admin
     const hasAnyPermission = allowedCompanyIds.length > 0 || allowedCostCenterIds.length > 0 || allowedSegmentIds.length > 0
-    if (!hasAnyPermission && user?.role !== 'ADMIN') {
+    if (!hasAnyPermission && user?.role !== 'ADMIN' && user?.role !== 'SUPER_ADMIN') {
         return (
             <div className="flex items-center justify-center h-screen text-[var(--text-secondary)]">
                 Acesso negado. Nenhuma permissão atribuída.
@@ -381,7 +386,7 @@ export default async function DrePage({
     ])
 
     // SECURITY: Limit Lines for Non-Admins
-    if (user?.role !== 'ADMIN') {
+    if (user?.role !== 'ADMIN' && user?.role !== 'SUPER_ADMIN') {
         // Universal Rule: Show lines 1 to 7 (Operational). Hide 8+ (Financial/Result)
         data = data.filter(row => {
             if (!row.code) return true // Headers?

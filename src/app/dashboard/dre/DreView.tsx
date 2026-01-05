@@ -1,5 +1,3 @@
-'use client'
-
 import { useState } from 'react'
 import { DreTable } from '@/app/components/DreTable'
 import { YearSelector } from '@/app/components/YearSelector'
@@ -7,6 +5,8 @@ import { VersionSelector } from '@/app/components/VersionSelector'
 import { HorizontalFilterBar } from '@/app/components/HorizontalFilterBar'
 import { DreRow } from '@/types/dre'
 import { updateTenantDreTitle } from '@/app/actions/settings'
+import { createAccount } from '@/app/actions/account' // Import createAccount
+import { Modal } from '@/app/components/Modal' // Import Modal
 import { useSidebarStore } from '@/store/sidebarStore'
 
 interface DreViewProps {
@@ -23,7 +23,7 @@ interface DreViewProps {
 
     // Filter Data
     companies: any[]
-    departments: any[] // NEW
+    departments: any[]
     costCenters: any[]
     clients: any[]
     segments: any[]
@@ -53,7 +53,7 @@ export function DreView({
     minYear,
     maxYear,
     companies,
-    departments, // NEW
+    departments,
     costCenters,
     clients,
     segments,
@@ -71,6 +71,13 @@ export function DreView({
     const [isEditingTitle, setIsEditingTitle] = useState(false)
     const [tempTitle, setTempTitle] = useState(dreTitle)
 
+    // Create Account State (Hoisted)
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+    const [targetParent, setTargetParent] = useState<{ id: string, code: string } | null>(null)
+    const [newAccountName, setNewAccountName] = useState('')
+    const [newAccountCode, setNewAccountCode] = useState('')
+    const [newAccountType, setNewAccountType] = useState<'INPUT' | 'CALCULATED'>('INPUT')
+
     async function handleSaveTitle() {
         if (!tempTitle.trim()) return
         try {
@@ -83,9 +90,49 @@ export function DreView({
         }
     }
 
+    const handleOpenCreateRoot = () => {
+        setTargetParent(null)
+        setNewAccountCode('')
+        setNewAccountName('')
+        setNewAccountType('CALCULATED')
+        setIsCreateModalOpen(true)
+    }
+
+    const handleOpenCreateSub = (parent: { id: string, code: string }, suggestedCode: string) => {
+        setTargetParent(parent)
+        setNewAccountCode(suggestedCode)
+        setNewAccountName('')
+        setNewAccountType('INPUT')
+        setIsCreateModalOpen(true)
+    }
+
+    const handleCreateAccount = async () => {
+        if (!newAccountName || !newAccountCode) return
+
+        try {
+            await createAccount({
+                tenantId,
+                name: newAccountName,
+                code: newAccountCode,
+                type: newAccountType,
+                parentId: targetParent?.id // undefined if root
+            })
+            setIsCreateModalOpen(false)
+        } catch (error: any) {
+            console.error('Create failed:', error)
+            if (error.message.includes('Unique constraint') || error.message.includes('code')) {
+                alert('Erro: Já existe uma conta com este Código. Por favor, escolha outro (ex: 1.3).')
+            } else {
+                alert(error.message || 'Erro ao criar conta')
+            }
+        }
+    }
+
+    const canManageStructure = userRole === 'ADMIN' || userRole === 'SUPER_ADMIN'
+
     // Dynamic sizing to correct layout issues
     const sidebarWidth = isCollapsed ? 80 : 260
-    const padding = 32 // p-4 = 1rem * 2 = 32px
+    const padding = 32 // p-4
     const buffer = 20
     const maxWidth = `calc(100vw - ${sidebarWidth + padding + buffer}px)`
 
@@ -122,7 +169,7 @@ export function DreView({
                         </div>
                     ) : (
                         <div className="flex items-center gap-2 group">
-                            <h2 className="text-2xl font-bold">{title}</h2>
+                            <h2 className="text-xl font-bold">{title}</h2>
                             <button
                                 onClick={() => {
                                     setTempTitle(title)
@@ -139,6 +186,15 @@ export function DreView({
 
                 {/* Right Side Controls */}
                 <div className="flex items-center gap-4">
+                    {canManageStructure && (
+                        <button
+                            onClick={handleOpenCreateRoot}
+                            className="bg-[var(--accent-primary)] hover:bg-[var(--accent-hover)] text-white text-xs font-medium px-3 py-1.5 rounded-md flex items-center gap-1 transition-colors shadow-sm"
+                        >
+                            <span>+</span> Nova Conta Principal
+                        </button>
+                    )}
+                    <div className="h-6 w-px bg-[var(--border-subtle)] mx-1"></div>
                     <VersionSelector versions={versions} currentVersionId={currentVersionId} />
                     <YearSelector currentYear={currentYear} minYear={minYear} maxYear={maxYear} currentVersionId={currentVersionId} />
                 </div>
@@ -148,7 +204,7 @@ export function DreView({
             <div style={{ width: '100%', maxWidth: maxWidth }}>
                 <HorizontalFilterBar
                     companies={companies}
-                    departments={departments} // NEW
+                    departments={departments}
                     costCenters={costCenters}
                     clients={clients}
                     segments={segments}
@@ -173,8 +229,53 @@ export function DreView({
                     activeVersionId={currentVersionId}
                     userRole={userRole}
                     userPermissions={userPermissions}
+                    onAddSubAccount={handleOpenCreateSub}
                 />
             </div>
+
+            <Modal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} title={targetParent ? "Nova Sub-conta" : "Nova Conta Principal"}>
+                <div className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-medium mb-1 text-[var(--text-secondary)]">Tipo de Conta</label>
+                        <select
+                            value={newAccountType}
+                            onChange={(e) => setNewAccountType(e.target.value as 'INPUT' | 'CALCULATED')}
+                            className="input-outline bg-[var(--bg-main)]"
+                        >
+                            <option value="INPUT">Entrada (Valor)</option>
+                            <option value="CALCULATED">Consolidado (Soma/Pasta)</option>
+                        </select>
+                        <p className="text-xs text-[var(--text-muted)] mt-1">
+                            {newAccountType === 'INPUT' ? 'Permite inserir valores mensais manualmente.' : 'Soma automaticamente as sub-contas. Não aceita valores manuais.'}
+                        </p>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium mb-1 text-[var(--text-secondary)]">Código</label>
+                        <input
+                            type="text"
+                            value={newAccountCode}
+                            onChange={e => setNewAccountCode(e.target.value)}
+                            className="input-outline"
+                            placeholder={targetParent ? `${targetParent.code}.1` : "1.0"}
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium mb-1 text-[var(--text-secondary)]">Nome</label>
+                        <input
+                            type="text"
+                            value={newAccountName}
+                            onChange={e => setNewAccountName(e.target.value)}
+                            className="input-outline"
+                            placeholder="Ex: Receita Operacional"
+                        />
+                    </div>
+                    <div className="flex justify-end gap-2 mt-6">
+                        <button onClick={() => setIsCreateModalOpen(false)} className="btn btn-ghost">Cancelar</button>
+                        <button onClick={handleCreateAccount} className="btn btn-primary">Criar Conta</button>
+                    </div>
+                </div>
+            </Modal>
         </div>
     )
 }
