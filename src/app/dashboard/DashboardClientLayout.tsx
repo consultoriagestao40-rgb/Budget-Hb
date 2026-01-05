@@ -24,7 +24,7 @@ export function DashboardClientLayout({
                 userEmail={userEmail}
             />
             <main
-                className={`flex-1 p-8 transition-all duration-300 ${isCollapsed ? 'ml-[80px]' : 'ml-[260px]'}`}
+                className={`flex-1 p-4 transition-all duration-300 ${isCollapsed ? 'ml-[80px]' : 'ml-[260px]'}`}
             >
                 {children}
             </main>

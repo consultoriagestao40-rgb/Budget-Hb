@@ -85,12 +85,12 @@ export function DreView({
 
     // Dynamic sizing to correct layout issues
     const sidebarWidth = isCollapsed ? 80 : 260
-    const padding = 64 // p-8 = 2rem * 2 = 64px
+    const padding = 32 // p-4 = 1rem * 2 = 32px
     const buffer = 20
     const maxWidth = `calc(100vw - ${sidebarWidth + padding + buffer}px)`
 
     return (
-        <div className="space-y-4 flex flex-col h-[calc(100vh-20px)] w-full">
+        <div className="space-y-2 flex flex-col h-[calc(100vh-20px)] w-full">
             {/* Header Area */}
             <div className="flex justify-between items-center shrink-0">
                 <div className="flex items-center gap-4">

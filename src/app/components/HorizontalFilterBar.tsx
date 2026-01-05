@@ -203,8 +203,9 @@ export function HorizontalFilterBar({
     }, [isExpanded])
 
     return (
-        <div className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-xl p-3 shadow-sm mb-4 relative transition-all duration-300">
-            <div className="grid grid-cols-4 gap-3">
+        <div className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-xl p-3 shadow-sm relative transition-all duration-300">
+            {/* Top Row: Primary Filters */}
+            <div className={`grid grid-cols-4 gap-3 mb-2`}>
                 {/* Row 1: Always Visible */}
                 <MultiSelect
                     label="Empresa"
