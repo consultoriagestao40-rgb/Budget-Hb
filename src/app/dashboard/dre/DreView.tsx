@@ -143,7 +143,7 @@ export function DreView({
     const maxWidth = `calc(100vw - ${sidebarWidth + padding + buffer}px)`
 
     return (
-        <div className="space-y-2 flex flex-col h-[calc(100vh-20px)] w-full">
+        <div className={`space-y-2 flex flex-col w-full ${isFullscreen ? '!fixed !inset-0 !z-[99999] !bg-[var(--bg-main)] !h-screen !w-screen !p-4 !overflow-hidden' : 'h-[calc(100vh-20px)]'}`}>
             {/* Header Area */}
             <div className="flex justify-between items-center shrink-0 relative z-50">
                 <div className="flex items-center gap-4">
@@ -216,7 +216,7 @@ export function DreView({
             </div>
 
             {/* Horizontal Filter Bar */}
-            <div style={{ width: '100%', maxWidth: maxWidth }}>
+            <div style={{ width: '100%', maxWidth: isFullscreen ? 'none' : maxWidth }}>
                 <HorizontalFilterBar
                     companies={companies}
                     departments={departments}
@@ -232,8 +232,8 @@ export function DreView({
 
             {/* Main Content Wrapper - strictly constrained */}
             <div
-                className={`bg-[var(--bg-surface)] rounded-xl border border-[var(--border-subtle)] shadow-2xl relative overflow-hidden transition-all duration-200 ${isFullscreen ? '!fixed !inset-0 !z-[99999] !w-screen !h-screen !m-0 !rounded-none !border-0' : 'flex-1'}`}
-                style={isFullscreen ? { maxWidth: 'none' } : { width: '100%', maxWidth: maxWidth }}
+                className={`bg-[var(--bg-surface)] rounded-xl border border-[var(--border-subtle)] shadow-2xl relative overflow-hidden transition-all duration-200 flex-1`}
+                style={isFullscreen ? { width: '100%', maxWidth: 'none' } : { width: '100%', maxWidth: maxWidth }}
             >
                 <DreTable
                     initialData={initialData}
