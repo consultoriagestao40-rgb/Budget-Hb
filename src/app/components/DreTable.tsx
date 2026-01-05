@@ -325,7 +325,7 @@ export function DreTable({ initialData, tenantId, year, availableCompanies, filt
 
     return (
         <div className="flex flex-col h-full">
-            <div className="flex-1 overflow-auto w-full relative">
+            <div className="flex-1 overflow-auto w-full relative pr-4">
                 <table className="text-left border-collapse min-w-[2000px]">
                     <thead className="sticky top-0 z-30 shadow-md">
                         <tr className="bg-[var(--bg-main)] text-xs uppercase tracking-wider text-[var(--text-secondary)] font-semibold border-b border-[var(--border-subtle)]">

@@ -145,7 +145,7 @@ export function DreView({
     return (
         <div className="space-y-2 flex flex-col h-[calc(100vh-20px)] w-full">
             {/* Header Area */}
-            <div className="flex justify-between items-center shrink-0">
+            <div className="flex justify-between items-center shrink-0 relative z-50">
                 <div className="flex items-center gap-4">
                     {/* Title Section */}
                     {isEditingTitle ? (
@@ -193,6 +193,7 @@ export function DreView({
                 {/* Right Side Controls */}
                 <div className="flex items-center gap-4">
                     <button
+                        type="button"
                         onClick={() => setIsFullscreen(!isFullscreen)}
                         className="btn-icon text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)]"
                         title={isFullscreen ? "Restaurar" : "Tela Cheia"}
