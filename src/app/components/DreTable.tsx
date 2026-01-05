@@ -314,7 +314,7 @@ export function DreTable({ initialData, tenantId, year, availableCompanies, filt
                         </td>
                     ))}
 
-                    <td className="px-2 py-3 text-right font-mono text-sm font-bold text-[var(--text-primary)] bg-[var(--bg-surface)]/50 border-l border-[var(--border-subtle)] min-w-[120px]">
+                    <td className="px-2 py-3 text-right font-mono text-sm font-bold text-[var(--text-primary)] sticky right-0 bg-[var(--bg-surface)] border-l border-[var(--border-subtle)] min-w-[120px] shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.5)]">
                         {total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </td>
                 </tr>
@@ -333,7 +333,7 @@ export function DreTable({ initialData, tenantId, year, availableCompanies, filt
                             {MONTHS.map(m => (
                                 <th key={m} className="px-2 py-4 text-right min-w-[100px]">{m}</th>
                             ))}
-                            <th className="px-2 py-4 text-right min-w-[120px] text-[var(--accent-primary)] border-l border-[var(--border-subtle)]">Total</th>
+                            <th className="px-2 py-4 text-right min-w-[120px] sticky right-0 bg-[var(--bg-main)] z-40 text-[var(--accent-primary)] border-l border-[var(--border-subtle)] shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.5)]">Total</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-[var(--border-subtle)]/50">

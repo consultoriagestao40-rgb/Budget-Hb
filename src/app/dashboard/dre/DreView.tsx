@@ -232,8 +232,8 @@ export function DreView({
 
             {/* Main Content Wrapper - strictly constrained */}
             <div
-                className={`bg-[var(--bg-surface)] rounded-xl border border-[var(--border-subtle)] shadow-2xl relative overflow-hidden transition-all duration-200 ${isFullscreen ? 'fixed inset-0 z-[9999] rounded-none border-0' : 'flex-1'}`}
-                style={isFullscreen ? { width: '100vw', height: '100vh', maxWidth: 'none' } : { width: '100%', maxWidth: maxWidth }}
+                className={`bg-[var(--bg-surface)] rounded-xl border border-[var(--border-subtle)] shadow-2xl relative overflow-hidden transition-all duration-200 ${isFullscreen ? '!fixed !inset-0 !z-[99999] !w-screen !h-screen !m-0 !rounded-none !border-0' : 'flex-1'}`}
+                style={isFullscreen ? { maxWidth: 'none' } : { width: '100%', maxWidth: maxWidth }}
             >
                 <DreTable
                     initialData={initialData}
