@@ -10,6 +10,7 @@ import { updateTenantDreTitle } from '@/app/actions/settings'
 import { createAccount } from '@/app/actions/account' // Import createAccount
 import { Modal } from '@/app/components/Modal' // Import Modal
 import { useSidebarStore } from '@/store/sidebarStore'
+import { Maximize2, Minimize2 } from 'lucide-react'
 
 interface DreViewProps {
     initialData: DreRow[]
@@ -72,6 +73,9 @@ export function DreView({
     const [title, setTitle] = useState(dreTitle)
     const [isEditingTitle, setIsEditingTitle] = useState(false)
     const [tempTitle, setTempTitle] = useState(dreTitle)
+
+    // Fullscreen State
+    const [isFullscreen, setIsFullscreen] = useState(false)
 
     // Create Account State (Hoisted)
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
@@ -188,6 +192,14 @@ export function DreView({
 
                 {/* Right Side Controls */}
                 <div className="flex items-center gap-4">
+                    <button
+                        onClick={() => setIsFullscreen(!isFullscreen)}
+                        className="btn-icon text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface-hover)]"
+                        title={isFullscreen ? "Restaurar" : "Tela Cheia"}
+                    >
+                        {isFullscreen ? <Minimize2 size={20} /> : <Maximize2 size={20} />}
+                    </button>
+
                     {canManageStructure && (
                         <button
                             onClick={handleOpenCreateRoot}
@@ -219,8 +231,8 @@ export function DreView({
 
             {/* Main Content Wrapper - strictly constrained */}
             <div
-                className="flex-1 bg-[var(--bg-surface)] rounded-xl border border-[var(--border-subtle)] shadow-2xl relative overflow-hidden"
-                style={{ width: '100%', maxWidth: maxWidth }}
+                className={`bg-[var(--bg-surface)] rounded-xl border border-[var(--border-subtle)] shadow-2xl relative overflow-hidden transition-all duration-200 ${isFullscreen ? 'fixed inset-0 z-50 rounded-none border-0' : 'flex-1'}`}
+                style={isFullscreen ? { width: '100vw', height: '100vh', maxWidth: 'none' } : { width: '100%', maxWidth: maxWidth }}
             >
                 <DreTable
                     initialData={initialData}
