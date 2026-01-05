@@ -1,3 +1,5 @@
+'use client'
+
 import { useState } from 'react'
 import { DreTable } from '@/app/components/DreTable'
 import { YearSelector } from '@/app/components/YearSelector'
