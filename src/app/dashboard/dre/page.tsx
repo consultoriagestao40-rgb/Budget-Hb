@@ -140,7 +140,14 @@ async function getDreData(
 
     // --- Other Simple Filters (Multi) ---
     if (filters.segmentIds && filters.segmentIds.length > 0) whereClause.segmentId = { in: filters.segmentIds }
-    if (filters.clientIds && filters.clientIds.length > 0) whereClause.clientId = { in: filters.clientIds }
+    if (filters.clientIds && filters.clientIds.length > 0) {
+        andConditions.push({
+            OR: [
+                { clientId: { in: filters.clientIds } },
+                { costCenter: { clientId: { in: filters.clientIds } } }
+            ]
+        })
+    }
 
     // Complex relationships filters
     if (filters.ccSegmentIds && filters.ccSegmentIds.length > 0) {
