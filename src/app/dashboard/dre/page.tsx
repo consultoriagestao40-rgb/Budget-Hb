@@ -133,13 +133,9 @@ async function getDreData(
         })
     }
 
-    // Apply AND conditions
-    if (andConditions.length > 0) {
-        whereClause.AND = andConditions
-    }
-
     // --- Other Simple Filters (Multi) ---
     if (filters.segmentIds && filters.segmentIds.length > 0) whereClause.segmentId = { in: filters.segmentIds }
+
     if (filters.clientIds && filters.clientIds.length > 0) {
         andConditions.push({
             OR: [
@@ -147,6 +143,11 @@ async function getDreData(
                 { costCenter: { clientId: { in: filters.clientIds } } }
             ]
         })
+    }
+
+    // Apply AND conditions (Must be done AFTER all conditions are pushed)
+    if (andConditions.length > 0) {
+        whereClause.AND = andConditions
     }
 
     // Complex relationships filters
