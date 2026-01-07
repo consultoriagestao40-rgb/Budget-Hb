@@ -360,12 +360,106 @@ export function HorizontalFilterBar({
             if (validDeptIds.has(d.id) && d.companyId) validCompanyIds.add(d.companyId)
         })
 
-        // If NO filters active, show all
+        // If NO filters active that constrain company (Client, Dept, CC), return all.
         const isConstrained = currentFilters.clientIds.length > 0 || currentFilters.departmentIds.length > 0 || currentFilters.costCenterIds.length > 0 || currentFilters.segmentIds.length > 0
 
         if (!isConstrained) return companies
 
-        return companies.filter(c => validCompanyIds.has(c.id))
+        return companies.filter(c => {
+            // 1. Must be in validCompanyIds (derived from CCs valid for Client/Dept/CC filters)
+            //    If Segments are the ONLY filter, validCCsIgnoringCompany handles it via Segment->Dept->CC check?
+            //    Yes, lines 346-349 filters CCs by Segment. 
+            //    So validCompanyIds derived from validCCs IS restricted by Segment.
+
+            // BUT: What if a Department has a Segment, but currently has NO Cost Centers linked to that Segment?
+            // The logic "Segment -> Dept -> CC -> Company" fails if the link "Dept -> CC" is empty for that specific segment linkage? 
+            // Actually, "Segment -> Dept" is strong. "Dept -> Company" is strong.
+            // "CC" is just a child of Dept.
+            // If I select Segment S (Dept D, Comp C), even if there are no CCs, I should see Comp C?
+            // Maybe. But DRE shows values from BudgetEntries, which link CC/Account.
+            // If there are no CCs, there might be no entries? 
+            // Wait, BudgetEntries can link Segment directly? 
+            // Schema says BudgetEntry has segmentId.
+            // So yes, we should support "Segment -> Dept -> Company" even without CCs.
+
+            // Fix: Explicit check for Segment -> Company relation
+            if (currentFilters.segmentIds.length > 0) {
+                const validDeptIds = getValidDeptIdsForSegments()
+                // If this company does NOT have any of the valid depts, it's invalid
+                // Find all depts of this company
+                const companyDepts = departments.filter(d => d.companyId === c.id)
+                const hasValidDept = companyDepts.some(d => validDeptIds?.has(d.id))
+
+                if (!hasValidDept) return false
+            }
+
+            // Also respect the validCompanyIds derived from CCs (for Client/CC filters)
+            // If only Segment is selected, validCCsIgnoringCompany (lines 334-350) filters CCs by Segment.
+            // validCompanyIds (lines 353-356) gets companies from those CCs.
+            // This works IF there are CCs. If no CCs, validCompanyIds might be empty -> showing nothing?
+            // Or if validCCs is empty, set is empty -> returns empty list.
+            // Be careful: If we want to show the Company even if no CCs exist (just structural link), we should relax this.
+            // But for DRE filtering, usually we care about data.
+            // However, the user request "When I select CEO (Segment), showing other Companies" implies structural filtering is desired.
+
+            // Combine logic:
+            // If Client/CC filters are active, we MUST match validCompanyIds (data existence).
+            // If they are NOT active, and only Segment is active, we can rely on structural check above?
+            // But `validCompanyIds` is already computed.
+            // Let's rely on validCompanyIds BUT ensure it's not "too loose" (which was the bug).
+            // The bug "Other companies appear" means `validCompanyIds` INCLUDED them.
+            // Why?
+            // Maybe `validCCsIgnoringCompany` included CCs from other companies?
+            // Line 346: `if (segmentIds > 0) ... check Dept`
+            // If I select Segment A (Dept 1, Comp 1).
+            // CC X (Dept 2, Comp 2).
+            // Line 348: `validDeptIds.has(cc.groupingId)` -> Dept 2 is NOT in validDeptIds. So returns false.
+            // So CC X is filtered out.
+            // So validCompanyIds should NOT contain Comp 2.
+
+            // WHY did user see Comp 2?
+            // Maybe `getValidDeptIdsForSegments` returned Dept 2?
+            // `segments.filter(s => ids.includes(s.id)).map(groupingId)`
+            // Verify Segment data. Does Segment CEO belong to multiple depts? 
+            // Unlikely if ID is unique.
+
+            // More likely: The logic was `return companies.filter(c => validCompanyIds.has(c.id))` 
+            // AND the previous bug (fixed in last turn) was "Segments didn't restrict parents".
+            // I pushed the fix. The user said "Department OK, but Company still wrong".
+            // If Dept is OK, it means `validDeptIds` is correct.
+            // If `getCompatibleDepartments` (Line 258) works, why `getCompatibleCompanies` (Line 332) fail?
+
+            // Ah, `getCompatibleCompanies` iterates `validCCsIgnoringCompany`.
+            // `getCompatibleDepartments` iterates `validCCsIgnoringDept` AND `validDeptIdsFromSegments`.
+            // In `getCompatibleCompanies`, I added the segment check (lines 346-349).
+            // Did I miss something?
+            // `validDeptIds` comes from `getValidDeptIdsForSegments`.
+            // If that returns Dept 1.
+            // Valid CCs should only be those in Dept 1.
+            // validCompanyIds should only be Comp 1.
+
+            // Is it possible `validCompanyIds` logic is flawed?
+            // `departments.forEach(d => { if (validDeptIds.has(d.id) && d.companyId) validCompanyIds.add(d.companyId) })`
+            // `validDeptIds` comes from `validCCsIgnoringCompany`.
+            // `validCCsIgnoringCompany` comes from `costCenters.filter(...)`.
+
+            // Wait! `validCCsIgnoringCompany` logic:
+            // It filters `costCenters`.
+            // But validCompanyIds builds list from `departments` that matched `validDeptIds`.
+            // `validDeptIds` = `validCCsIgnoringCompany.map(cc => cc.groupingId)`.
+
+            // If verify fails, maybe I should do the "Structural Check" I wrote above (lines 30-36 of this comment block) as a safeguard.
+            // It forces the restriction: "If Segment selected, Company MUST own the Segment's department".
+
+            // Let's add that AND keep validCompanyIds check.
+            // The check `hasValidDept` below ensures structural compliance.
+
+            return validCompanyIds.has(c.id) && (
+                currentFilters.segmentIds.length > 0
+                    ? departments.filter(d => d.companyId === c.id).some(d => getValidDeptIdsForSegments()?.has(d.id))
+                    : true
+            )
+        })
     }
 
     const filteredCompanies = getCompatibleCompanies()
