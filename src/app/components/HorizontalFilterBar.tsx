@@ -11,6 +11,8 @@ interface FilterOption {
     code?: string | null
     companyId?: string | null
     groupingId?: string | null // For Department linkage
+    clientId?: string | null
+    segmentId?: string | null
 }
 
 interface HorizontalFilterBarProps {
@@ -92,45 +94,262 @@ export function HorizontalFilterBar({
 
     // --- Cascading Logic ---
 
-    // 1. Filter Departments by Companies
-    const filteredDepartments = currentFilters.companyIds.length > 0
-        ? departments.filter(d => d.companyId && currentFilters.companyIds.includes(d.companyId))
-        : departments
+    // --- Mutual Interdependence Logic ---
 
-    // 2. Filter CostCenters
-    const filteredCostCenters = costCenters.filter(cc => {
-        if (currentFilters.departmentIds.length > 0) {
-            return cc.groupingId && currentFilters.departmentIds.includes(cc.groupingId)
-        }
-        if (currentFilters.companyIds.length > 0) {
-            return filteredDepartments.some(d => d.id === cc.groupingId)
-        }
-        return true
-    })
+    // 1. "Valid Cost Centers" - The Key to Interdependence
+    // Determine which Cost Centers are valid based on ALL active filters EXCEPT the dimension being filtered.
+    // However, to simply filter option lists, we can define a simpler approach:
+    // "Which CCs survive the current global filter set?" (ignoring the specific filter we are populating to avoiding circular empty lists?)
+    // No, standard behavior:
+    // If I select Client A, I should only see Depts that have CCs for Client A.
+    // If I select Dept B, I should only see Clients that have CCs in Dept B.
+    // If I select Client A AND Dept B, I should only see CCs that are in BOTH.
 
-    // 3. Filter "Centro de Despesa" (Separate segments)
+    // Step 1: Filter the "Central" table (Cost Centers) based on all criteria.
+    // Since Cost Center links almost everything, we use it as the hub.
+
+    const getValidCostCenters = (excludeFilter?: 'company' | 'dept' | 'client' | 'segment' | 'ccSegment' | 'city' | 'state') => {
+        return costCenters.filter(cc => {
+            // Check Company (via Dept)
+            if (excludeFilter !== 'company' && currentFilters.companyIds.length > 0) {
+                // Find department for this CC
+                const dept = departments.find(d => d.id === cc.groupingId)
+                if (!dept || !dept.companyId || !currentFilters.companyIds.includes(dept.companyId)) return false
+            }
+
+            // Check Department (Grouping)
+            if (excludeFilter !== 'dept' && currentFilters.departmentIds.length > 0) {
+                if (!cc.groupingId || !currentFilters.departmentIds.includes(cc.groupingId)) return false
+            }
+
+            // Check Client
+            if (excludeFilter !== 'client' && currentFilters.clientIds.length > 0) {
+                if (!cc.clientId || !currentFilters.clientIds.includes(cc.clientId)) return false
+            }
+
+            // Check Segment (Centro de Despesa linked to Dept - Logic Check)
+            // If Segment Filter is active, it restricts Departments.
+            if (excludeFilter !== 'segment' && currentFilters.segmentIds.length > 0) {
+                // Find Dept, see if it has ANY segment in list? No, Segment filter usually means "Expenses tagged with Segment X".
+                // But budget entries are what link Segment. CCs are structural.
+                // However, schema says Segment is sibling to CC under Grouping.
+                // If the user filters by Segment X, they likely want to see Cost Centers in the SAME Department as Segment X?
+                // Or is it unrelated?
+                // Re-reading Schema: BudgetEntry links Account, Company, CC, Client, Grouping, Segment independently?
+                // Yes. But logical constraint: Segment belongs to Dept.
+                // So if Segment X is selected, only CCs in Dept(Segment X) might be relevant structure-wise.
+                // Simplification for now: Link via Department.
+                // If Segment X selected -> Get Dept of Segment X -> Filter CCs by that Dept.
+                const validDeptsForSegments = segments
+                    .filter(s => currentFilters.segmentIds.includes(s.id))
+                    .map(s => s.groupingId)
+                    .filter(Boolean) as string[]
+
+                if (validDeptsForSegments.length > 0) {
+                    if (!cc.groupingId || !validDeptsForSegments.includes(cc.groupingId)) return false
+                }
+            }
+
+            // Check CC Segment (Seguimento linked to CC)
+            if (excludeFilter !== 'ccSegment' && currentFilters.ccSegmentIds.length > 0) {
+                if (!cc.segmentId || !currentFilters.ccSegmentIds.includes(cc.segmentId)) return false
+            }
+
+            // Check City / State
+            if (excludeFilter !== 'city' && excludeFilter !== 'state') {
+                if (currentFilters.cityIds.length > 0) {
+                    // Assuming CC has city linkage. If not directly in object, we need to look it up.
+                    // FilterOption usually just has basic props.
+                    // We need to ensure we have cityId.
+                    // Assuming cityId matches (props are spread).
+                    // If not, we might need a lookup using `cities`?
+                    // Let's assume passed CC object has cityId if schema has it.
+                    const ccCityId = (cc as any).cityId
+                    if (!ccCityId || !currentFilters.cityIds.includes(ccCityId)) return false
+                }
+                if (currentFilters.states.length > 0) {
+                    // Check via City
+                    const ccCityId = (cc as any).cityId
+                    const city = cities.find(c => c.id === ccCityId)
+                    if (!city || !currentFilters.states.includes(city.state)) return false
+                }
+            }
+
+            return true
+        })
+    }
+
+    // --- Generate Options based on Valid CCs ---
+
+    // 1. Cost Centers List:
+    // Should be filtered by ALL other filters (Company, Dept, Client, etc.)
+    // But NOT by itself (so we can select more).
+    // Actually, usually dropdown shows options compatible with *other* fields.
+    const validCCsForCCDropdown = getValidCostCenters() // Filter by everything active
+    // But wait, if I have CC "A" selected, and I'm looking at list, I still want to see valid ones.
+    // The list content should be "All CCs compatible with Company X, Client Y...".
+    // It should NOT be filtered by `costCenterIds` (the selection itself).
+    const compatibleCCs = getValidCostCenters() // This considers current CC selection?
+    // No, `getValidCCs` filters *individual instances*.
+    // We want the LIST OF OPTIONS.
+    // The list of options available for "Cost Center" should be strictly determined by:
+    // Companies, Depts, Clients, Segments, Cities.
+    // IT SHOULD NOT BE FILTERED BY `costCenterIds` (current selection).
+    // Use `getValidCostCenters` but pass nothing?
+    // Wait, the logic inside `getValidCostCenters` DOES check `currentFilters`.
+    // We should pass an ignore flag. But my helper signature logic was...
+    // Let's rely on specific calls.
+
+    const getCompatibleCCs = () => {
+        // Start with ALL, filter by everything EXCEPT 'costCenterId'
+        // Just re-use logic but ignore specific filter keys
+        const companiesActive = currentFilters.companyIds.length > 0
+        const departmentsActive = currentFilters.departmentIds.length > 0
+        const clientsActive = currentFilters.clientIds.length > 0
+        const ccSegmentsActive = currentFilters.ccSegmentIds.length > 0
+
+        return costCenters.filter(cc => {
+            if (companiesActive) {
+                const dept = departments.find(d => d.id === cc.groupingId)
+                if (!dept || !dept.companyId || !currentFilters.companyIds.includes(dept.companyId)) return false
+            }
+            if (departmentsActive) {
+                if (!cc.groupingId || !currentFilters.departmentIds.includes(cc.groupingId)) return false
+            }
+            if (clientsActive) {
+                if (!cc.clientId || !currentFilters.clientIds.includes(cc.clientId)) return false
+            }
+            if (ccSegmentsActive) {
+                if (!cc.segmentId || !currentFilters.ccSegmentIds.includes(cc.segmentId)) return false
+            }
+            return true
+        })
+    }
+
+    const filteredCostCenters = getCompatibleCCs()
+
+    // 2. Clients List:
+    // Filtered by Valid CCs (which are filtered by Company, Dept, Segment...)
+    // BUT NOT filtered by Client selection itself.
+    const getCompatibleClients = () => {
+        const validCCsIgnoringClient = costCenters.filter(cc => {
+            if (currentFilters.companyIds.length > 0) {
+                const dept = departments.find(d => d.id === cc.groupingId)
+                if (!dept || !dept.companyId || !currentFilters.companyIds.includes(dept.companyId)) return false
+            }
+            if (currentFilters.departmentIds.length > 0) {
+                if (!cc.groupingId || !currentFilters.departmentIds.includes(cc.groupingId)) return false
+            }
+            // Ignore Client Filter here
+            return true
+        })
+
+        const allowedClientIds = new Set(validCCsIgnoringClient.map(cc => cc.clientId).filter(Boolean))
+        return clients.filter(c => allowedClientIds.has(c.id))
+    }
+
+    const filteredClients = getCompatibleClients()
+
+
+    // 3. Departments List:
+    // Filtered by Company.
+    // AND filtered by Client? (If Client X selected, show only Depts that have CCs for Client X).
+    const getCompatibleDepartments = () => {
+        // Valid CCs ignoring Department filter
+        const validCCsIgnoringDept = costCenters.filter(cc => {
+            // Check Company
+            if (currentFilters.companyIds.length > 0) {
+                const dept = departments.find(d => d.id === cc.groupingId)
+                // Filter Dept based on Company directly?
+                // Yes, logic: Dept must belong to Company.
+                // But we are finding VALID CCs first.
+                // Logic: A CC is valid if its Dept belongs to Company.
+                // So this check is essentially enforcing Company constraint on CC.
+                if (!dept || !dept.companyId || !currentFilters.companyIds.includes(dept.companyId)) return false
+            }
+            // Check Client
+            if (currentFilters.clientIds.length > 0) {
+                if (!cc.clientId || !currentFilters.clientIds.includes(cc.clientId)) return false
+            }
+            return true
+        })
+
+        // Get Departments from these valid CCs
+        const validDeptIdsFromCCs = new Set(validCCsIgnoringDept.map(cc => cc.groupingId).filter(Boolean))
+
+        // Also, include Departments that match Company filter directly (even if no CCs? No, empty depts are valid if they match company).
+        // But if Client is selected, we MUST restrict to Depts with that Client.
+
+        return departments.filter(d => {
+            // 1. Basic Company Check
+            if (currentFilters.companyIds.length > 0 && (!d.companyId || !currentFilters.companyIds.includes(d.companyId))) return false
+
+            // 2. Client/CC Linkage Check
+            // If Client is selected, the Dept MUST be in the valid list derived from CCs.
+            if (currentFilters.clientIds.length > 0) {
+                if (!validDeptIdsFromCCs.has(d.id)) return false
+            }
+
+            return true
+        })
+    }
+
+    const filteredDepartments = getCompatibleDepartments()
+
+
+    // 4. Companies List:
+    // Filtered by Client -> CC -> Dept -> Company
+    const getCompatibleCompanies = () => {
+        // Valid CCs ignoring Company filter
+        const validCCsIgnoringCompany = costCenters.filter(cc => {
+            if (currentFilters.clientIds.length > 0) {
+                if (!cc.clientId || !currentFilters.clientIds.includes(cc.clientId)) return false
+            }
+            if (currentFilters.departmentIds.length > 0) {
+                if (!cc.groupingId || !currentFilters.departmentIds.includes(cc.groupingId)) return false
+            }
+            return true
+        })
+
+        const validDeptIds = new Set(validCCsIgnoringCompany.map(cc => cc.groupingId).filter(Boolean))
+        const validCompanyIds = new Set<string>()
+
+        // Find companies for these departments
+        departments.forEach(d => {
+            if (validDeptIds.has(d.id) && d.companyId) validCompanyIds.add(d.companyId)
+        })
+
+        // If NO filters active that constrain company (Client, Dept, CC), return all.
+        const isConstrained = currentFilters.clientIds.length > 0 || currentFilters.departmentIds.length > 0 || currentFilters.costCenterIds.length > 0
+
+        if (!isConstrained) return companies
+
+        return companies.filter(c => validCompanyIds.has(c.id))
+    }
+
+    const filteredCompanies = getCompatibleCompanies()
+
+
+    // 5. Segments (Centro de Despesa)
+    // Linked to Departments.
     const filteredSegments = (segments as any[]).filter(seg => {
-        if (currentFilters.departmentIds.length > 0) {
-            return seg.groupingId && currentFilters.departmentIds.includes(seg.groupingId)
-        }
-        if (currentFilters.companyIds.length > 0) {
-            return filteredDepartments.some(d => d.id === seg.groupingId)
-        }
-        return true
+        // Must belong to a valid Department (from the filtered list)
+        return seg.groupingId && filteredDepartments.some(d => d.id === seg.groupingId)
     })
 
-    // 4. Filter segments (Followups)
-    const activeCCSegmentIds = new Set(filteredCostCenters.map((cc: any) => cc.segmentId).filter(Boolean))
-    const filteredCCSegments = ccSegments.filter(ccs => activeCCSegmentIds.has(ccs.id))
+    // 6. CC Segments (Seguimento)
+    // Derived from active CCs
+    const filteredCCSegments = ccSegments.filter(ccs => {
+        // Valid if ANY compatible CC uses it.
+        // Use `filteredCostCenters` (which represents the set of CCs valid for OTHER filters)
+        return filteredCostCenters.some(cc => cc.segmentId === ccs.id)
+    })
 
-    // 5. Filter Clients
-    const activeClientIds = new Set(filteredCostCenters.map((cc: any) => cc.clientId).filter(Boolean))
-    const filteredClients = clients.filter(c => activeClientIds.has(c.id))
-
-    // 6. Filter Cities
-    const filteredCities = currentFilters.states.length > 0
-        ? cities.filter(c => currentFilters.states.includes(c.state))
-        : cities
+    // 7. Cities / States
+    // Derived from active CCs
+    const filteredCities = cities.filter(city => {
+        return filteredCostCenters.some(cc => (cc as any).cityId === city.id)
+    })
 
     // Helper functions for codes (unchanged logic, just moved inline or simplified if needed)
     // ... kept simple for rendering
