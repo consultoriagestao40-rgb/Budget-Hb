@@ -196,13 +196,13 @@ export function HorizontalFilterBar({
     // Companies, Depts, Clients, Segments, Cities.
     // IT SHOULD NOT BE FILTERED BY `costCenterIds` (current selection).
     // Use `getValidCostCenters` but pass nothing?
+    // Use `getValidCCs` but pass nothing?
     // Wait, the logic inside `getValidCostCenters` DOES check `currentFilters`.
     // We should pass an ignore flag. But my helper signature logic was...
     // Let's rely on specific calls.
 
     const getCompatibleCCs = () => {
-        // Start with ALL, filter by everything EXCEPT 'costCenterId'
-        // Just re-use logic but ignore specific filter keys
+        // Start with ALL, filter by everything EXCEPT 'costCenterId' (Option List logic)
         const companiesActive = currentFilters.companyIds.length > 0
         const departmentsActive = currentFilters.departmentIds.length > 0
         const clientsActive = currentFilters.clientIds.length > 0
@@ -229,8 +229,7 @@ export function HorizontalFilterBar({
     const filteredCostCenters = getCompatibleCCs()
 
     // 2. Clients List:
-    // Filtered by Valid CCs (which are filtered by Company, Dept, Segment...)
-    // BUT NOT filtered by Client selection itself.
+    // Should be filtered by Cost Center Selection too!
     const getCompatibleClients = () => {
         const validCCsIgnoringClient = costCenters.filter(cc => {
             if (currentFilters.companyIds.length > 0) {
@@ -240,7 +239,11 @@ export function HorizontalFilterBar({
             if (currentFilters.departmentIds.length > 0) {
                 if (!cc.groupingId || !currentFilters.departmentIds.includes(cc.groupingId)) return false
             }
-            // Ignore Client Filter here
+            // Check Cost Center Selection
+            if (currentFilters.costCenterIds.length > 0) {
+                if (!currentFilters.costCenterIds.includes(cc.id)) return false
+            }
+
             return true
         })
 
@@ -252,41 +255,33 @@ export function HorizontalFilterBar({
 
 
     // 3. Departments List:
-    // Filtered by Company.
-    // AND filtered by Client? (If Client X selected, show only Depts that have CCs for Client X).
     const getCompatibleDepartments = () => {
-        // Valid CCs ignoring Department filter
         const validCCsIgnoringDept = costCenters.filter(cc => {
             // Check Company
             if (currentFilters.companyIds.length > 0) {
                 const dept = departments.find(d => d.id === cc.groupingId)
-                // Filter Dept based on Company directly?
-                // Yes, logic: Dept must belong to Company.
-                // But we are finding VALID CCs first.
-                // Logic: A CC is valid if its Dept belongs to Company.
-                // So this check is essentially enforcing Company constraint on CC.
                 if (!dept || !dept.companyId || !currentFilters.companyIds.includes(dept.companyId)) return false
             }
             // Check Client
             if (currentFilters.clientIds.length > 0) {
                 if (!cc.clientId || !currentFilters.clientIds.includes(cc.clientId)) return false
             }
+            // Check Cost Center Selection (Critical fix!)
+            if (currentFilters.costCenterIds.length > 0) {
+                if (!currentFilters.costCenterIds.includes(cc.id)) return false
+            }
             return true
         })
 
-        // Get Departments from these valid CCs
         const validDeptIdsFromCCs = new Set(validCCsIgnoringDept.map(cc => cc.groupingId).filter(Boolean))
-
-        // Also, include Departments that match Company filter directly (even if no CCs? No, empty depts are valid if they match company).
-        // But if Client is selected, we MUST restrict to Depts with that Client.
 
         return departments.filter(d => {
             // 1. Basic Company Check
             if (currentFilters.companyIds.length > 0 && (!d.companyId || !currentFilters.companyIds.includes(d.companyId))) return false
 
-            // 2. Client/CC Linkage Check
-            // If Client is selected, the Dept MUST be in the valid list derived from CCs.
-            if (currentFilters.clientIds.length > 0) {
+            // 2. Strict Dependence on CC/Client
+            // If CC or Client is selected, the Dept MUST be consistent.
+            if (currentFilters.clientIds.length > 0 || currentFilters.costCenterIds.length > 0) {
                 if (!validDeptIdsFromCCs.has(d.id)) return false
             }
 
@@ -298,7 +293,6 @@ export function HorizontalFilterBar({
 
 
     // 4. Companies List:
-    // Filtered by Client -> CC -> Dept -> Company
     const getCompatibleCompanies = () => {
         // Valid CCs ignoring Company filter
         const validCCsIgnoringCompany = costCenters.filter(cc => {
@@ -308,18 +302,21 @@ export function HorizontalFilterBar({
             if (currentFilters.departmentIds.length > 0) {
                 if (!cc.groupingId || !currentFilters.departmentIds.includes(cc.groupingId)) return false
             }
+            // Check Cost Center Selection
+            if (currentFilters.costCenterIds.length > 0) {
+                if (!currentFilters.costCenterIds.includes(cc.id)) return false
+            }
             return true
         })
 
         const validDeptIds = new Set(validCCsIgnoringCompany.map(cc => cc.groupingId).filter(Boolean))
         const validCompanyIds = new Set<string>()
 
-        // Find companies for these departments
         departments.forEach(d => {
             if (validDeptIds.has(d.id) && d.companyId) validCompanyIds.add(d.companyId)
         })
 
-        // If NO filters active that constrain company (Client, Dept, CC), return all.
+        // If NO filters active, show all
         const isConstrained = currentFilters.clientIds.length > 0 || currentFilters.departmentIds.length > 0 || currentFilters.costCenterIds.length > 0
 
         if (!isConstrained) return companies
@@ -331,24 +328,26 @@ export function HorizontalFilterBar({
 
 
     // 5. Segments (Centro de Despesa)
-    // Linked to Departments.
+    // Linked to Departments (which are now properly filtered by CC)
     const filteredSegments = (segments as any[]).filter(seg => {
-        // Must belong to a valid Department (from the filtered list)
         return seg.groupingId && filteredDepartments.some(d => d.id === seg.groupingId)
     })
 
+    // Helper: Effective Cost Centers for downstream filters
+    // If we have a CC selection, we must use it. If not, we use the list of available CCs.
+    const effectiveCostCenters = currentFilters.costCenterIds.length > 0
+        ? filteredCostCenters.filter(cc => currentFilters.costCenterIds.includes(cc.id))
+        : filteredCostCenters
+
     // 6. CC Segments (Seguimento)
-    // Derived from active CCs
     const filteredCCSegments = ccSegments.filter(ccs => {
-        // Valid if ANY compatible CC uses it.
-        // Use `filteredCostCenters` (which represents the set of CCs valid for OTHER filters)
-        return filteredCostCenters.some(cc => cc.segmentId === ccs.id)
+        // Must belong to an EFFECTIVE cost center
+        return effectiveCostCenters.some(cc => cc.segmentId === ccs.id)
     })
 
     // 7. Cities / States
-    // Derived from active CCs
     const filteredCities = cities.filter(city => {
-        return filteredCostCenters.some(cc => (cc as any).cityId === city.id)
+        return effectiveCostCenters.some(cc => (cc as any).cityId === city.id)
     })
 
     // Helper functions for codes (unchanged logic, just moved inline or simplified if needed)
