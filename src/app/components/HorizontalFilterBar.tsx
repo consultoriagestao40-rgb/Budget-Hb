@@ -403,54 +403,25 @@ export function HorizontalFilterBar({
             // However, the user request "When I select CEO (Segment), showing other Companies" implies structural filtering is desired.
 
             // Combined Logic:
-            // 1. If Segment is selected, we MUST respect the Segment->Dept->Company structure.
-            //    Only companies owning valid departments for the segment are allowed.
+            // 1. If Segment is selected, we rely on the `filteredDepartments` list.
+            //    The user confirmed Departments are correct. So companies must be derived from them.
             if (currentFilters.segmentIds.length > 0) {
-                const validDeptIds = getValidDeptIdsForSegments()
-                const companyDepts = departments.filter(d => d.companyId === c.id)
-                const hasValidDept = companyDepts.some(d => validDeptIds?.has(d.id))
+                // Check if this company owns any of the currently valid/filtered departments.
+                // We use `filteredDepartments` because it already contains the correct logic for Segment->Dept.
+                const hasValidDeptInFilteredList = filteredDepartments.some(d => d.companyId === c.id)
 
-                // If the company doesn't own the Department of the Segment, it's definitely invalid.
-                if (!hasValidDept) return false
+                if (!hasValidDeptInFilteredList) return false
 
-                // If it DOES own the Department, should we also check if it has valid Cost Centers?
-                // The user's issue is "Other companies appear". This check `!hasValidDept` correctly ELIMINATES them.
-                // So the issue was that previous logic was somehow too loose?
-                // No, the user said "All 4 companies appear".
-                // That means `validCompanyIds.has(c.id)` was TRUE for all of them.
-                // Which means `validCCsIgnoringCompany` included CCs from all companies.
-                // All those CCs passed the `validDeptIds.has(cc.groupingId)` check.
-                // Which implies `validDeptIds` (from helper) included Depts from all companies.
-                // Which implies `segments` with matching IDs belong to Depts from all companies.
-                //
-                // Wait! Segments are filtered by `currentFilters.segmentIds.includes(s.id)`.
-                // Is it possible the Segment ID is shared across companies? (Same ID for multiple records?)
-                // Prisma IDs are usually UUIDs. But if they are manually imported codes...
-                // Component uses `s.id`.
-                // 
-                // Regardless, the Strict Structural Check I added SHOULD have fixed it.
-                // `if (!hasValidDept) return false`.
-                // If the user still sees all companies, it means `hasValidDept` is TRUE for all companies.
-                // Which means ALL companies have a Dept that matches `validDeptIds`.
-                // This confirms `validDeptIds` contains IDs of departments from all companies.
-                //
-                // Conclusion: The selected Segment (by ID) is somehow linked to Departments in all companies?
-                // Or `getValidDeptIdsForSegments` is returning ALL departments?
-                // `currentFilters.segmentIds` comes from URL.
-                // `segments` comes from props.
+                // If ONLY Segment is active, we are done (return true).
+                // If other filters are active, we continue to check `validCompanyIds` (CC/Client logic).
+                // But wait, if `validCompanyIds` (derived from CCs) is potentially incomplete (orphans?), strict check might hide things.
+                // However, the issue is "Showing too much".
+                const otherFiltersActive = currentFilters.clientIds.length > 0 || currentFilters.costCenterIds.length > 0
 
-                // Let's modify the condition to be exclusively structural if Segment is the ONLY filter.
-                // If Client/CC are also selected, we need to respect them too.
-
-                const otherFiltersActive = currentFilters.clientIds.length > 0 || currentFilters.departmentIds.length > 0 || currentFilters.costCenterIds.length > 0
-
-                // If only Segment is active, trust the structure 100%. 
-                // (Because we validated that validCCs logic might be "leaking" or data issues).
                 if (!otherFiltersActive) return true
             }
 
             // If other filters are active, or no segment selected:
-            // We MUST match `validCompanyIds` to ensure Client/CC/Dept constraints are met.
             return validCompanyIds.has(c.id)
         })
     }
