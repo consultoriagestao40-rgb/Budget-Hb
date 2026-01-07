@@ -328,9 +328,14 @@ export function HorizontalFilterBar({
 
 
     // 5. Segments (Centro de Despesa)
-    // Linked to Departments (which are now properly filtered by CC)
+    // Linked to Departments.
+    // Must respect SELECTED Departments if any, otherwise all available compatible departments.
+    const effectiveDepartments = currentFilters.departmentIds.length > 0
+        ? filteredDepartments.filter(d => currentFilters.departmentIds.includes(d.id))
+        : filteredDepartments
+
     const filteredSegments = (segments as any[]).filter(seg => {
-        return seg.groupingId && filteredDepartments.some(d => d.id === seg.groupingId)
+        return seg.groupingId && effectiveDepartments.some(d => d.id === seg.groupingId)
     })
 
     // Helper: Effective Cost Centers for downstream filters
