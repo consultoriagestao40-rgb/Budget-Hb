@@ -201,12 +201,23 @@ export function HorizontalFilterBar({
     // We should pass an ignore flag. But my helper signature logic was...
     // Let's rely on specific calls.
 
+    // Helper to get valid departments for selected segments
+    const getValidDeptIdsForSegments = () => {
+        if (currentFilters.segmentIds.length === 0) return null
+        return new Set(segments
+            .filter(s => currentFilters.segmentIds.includes(s.id))
+            .map(s => s.groupingId)
+            .filter(Boolean))
+    }
+
     const getCompatibleCCs = () => {
-        // Start with ALL, filter by everything EXCEPT 'costCenterId' (Option List logic)
         const companiesActive = currentFilters.companyIds.length > 0
         const departmentsActive = currentFilters.departmentIds.length > 0
         const clientsActive = currentFilters.clientIds.length > 0
         const ccSegmentsActive = currentFilters.ccSegmentIds.length > 0
+        const segmentsActive = currentFilters.segmentIds.length > 0
+
+        const validDeptIdsForSegments = getValidDeptIdsForSegments()
 
         return costCenters.filter(cc => {
             if (companiesActive) {
@@ -221,6 +232,13 @@ export function HorizontalFilterBar({
             }
             if (ccSegmentsActive) {
                 if (!cc.segmentId || !currentFilters.ccSegmentIds.includes(cc.segmentId)) return false
+            }
+            // Check Segment (Centro de Despesa) linked via Dept
+            if (segmentsActive && validDeptIdsForSegments) {
+                // If Segments are selected, the CC must belong to a Department that owns one of these Segments.
+                // NOTE: This assumes CCs and Segments are siblings under Dept.
+                // If existing logic (Segment Filter) implies "Only show stuff related to these Segments", then YES.
+                if (!cc.groupingId || !validDeptIdsForSegments.has(cc.groupingId)) return false
             }
             return true
         })
@@ -242,6 +260,11 @@ export function HorizontalFilterBar({
             // Check Cost Center Selection
             if (currentFilters.costCenterIds.length > 0) {
                 if (!currentFilters.costCenterIds.includes(cc.id)) return false
+            }
+            // Check Segment
+            if (currentFilters.segmentIds.length > 0) {
+                const validDeptIds = getValidDeptIdsForSegments()
+                if (validDeptIds && (!cc.groupingId || !validDeptIds.has(cc.groupingId))) return false
             }
 
             return true
@@ -270,19 +293,32 @@ export function HorizontalFilterBar({
             if (currentFilters.costCenterIds.length > 0) {
                 if (!currentFilters.costCenterIds.includes(cc.id)) return false
             }
+            // Check Segment (indirectly via Dept check logic below, but CC validity matter too?)
+            // If Segment is filtered, CCs in WRONG departments are invalid.
+            if (currentFilters.segmentIds.length > 0) {
+                const validDeptIds = getValidDeptIdsForSegments()
+                if (validDeptIds && (!cc.groupingId || !validDeptIds.has(cc.groupingId))) return false
+            }
             return true
         })
 
         const validDeptIdsFromCCs = new Set(validCCsIgnoringDept.map(cc => cc.groupingId).filter(Boolean))
+
+        // Get Departments directly compatible with Segment
+        const validDeptIdsFromSegments = getValidDeptIdsForSegments()
 
         return departments.filter(d => {
             // 1. Basic Company Check
             if (currentFilters.companyIds.length > 0 && (!d.companyId || !currentFilters.companyIds.includes(d.companyId))) return false
 
             // 2. Strict Dependence on CC/Client
-            // If CC or Client is selected, the Dept MUST be consistent.
             if (currentFilters.clientIds.length > 0 || currentFilters.costCenterIds.length > 0) {
                 if (!validDeptIdsFromCCs.has(d.id)) return false
+            }
+
+            // 3. Strict Dependence on Segment
+            if (currentFilters.segmentIds.length > 0 && validDeptIdsFromSegments) {
+                if (!validDeptIdsFromSegments.has(d.id)) return false
             }
 
             return true
@@ -306,6 +342,11 @@ export function HorizontalFilterBar({
             if (currentFilters.costCenterIds.length > 0) {
                 if (!currentFilters.costCenterIds.includes(cc.id)) return false
             }
+            // Check Segment
+            if (currentFilters.segmentIds.length > 0) {
+                const validDeptIds = getValidDeptIdsForSegments()
+                if (validDeptIds && (!cc.groupingId || !validDeptIds.has(cc.groupingId))) return false
+            }
             return true
         })
 
@@ -313,11 +354,14 @@ export function HorizontalFilterBar({
         const validCompanyIds = new Set<string>()
 
         departments.forEach(d => {
+            // If Segment is selected, Dept must ALSO be in validDeptIdsFromSegments
+            // But validCCsIgnoringCompany already filtered CCs by Segment->Dept.
+            // So validDeptIds contains only depts valid for segments.
             if (validDeptIds.has(d.id) && d.companyId) validCompanyIds.add(d.companyId)
         })
 
         // If NO filters active, show all
-        const isConstrained = currentFilters.clientIds.length > 0 || currentFilters.departmentIds.length > 0 || currentFilters.costCenterIds.length > 0
+        const isConstrained = currentFilters.clientIds.length > 0 || currentFilters.departmentIds.length > 0 || currentFilters.costCenterIds.length > 0 || currentFilters.segmentIds.length > 0
 
         if (!isConstrained) return companies
 
