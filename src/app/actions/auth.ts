@@ -37,7 +37,7 @@ export async function login(formData: FormData) {
         redirect('/change-password')
     }
 
-    redirect('/dashboard')
+    redirect('/dashboard/dre')
 }
 
 export async function logout() {
