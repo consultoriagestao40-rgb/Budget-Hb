@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "echo '>>> MIGRATING...' && npx prisma generate && npx prisma db push --accept-data-loss && echo '>>> DONE.' && next build",
+    "build": "./vercel-build.sh",
     "start": "next start",
     "lint": "eslint",
     "postinstall": "prisma generate"
