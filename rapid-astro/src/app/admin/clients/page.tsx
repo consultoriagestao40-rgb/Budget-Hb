@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+export const dynamic = "force-dynamic";
 import { prisma } from "@/lib/db";
 import { getCurrentUserRole } from "@/lib/auth";
 import { ClientsList } from "./ClientsList";

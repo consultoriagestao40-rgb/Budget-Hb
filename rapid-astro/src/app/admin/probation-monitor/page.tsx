@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+export const dynamic = "force-dynamic";
 
 import { ProbationActions } from "@/components/admin/ProbationActions";
 
