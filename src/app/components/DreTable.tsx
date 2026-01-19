@@ -84,9 +84,23 @@ export function DreTable({
 
         // Check if user has permission for the selected Company
         if (companyId && companyId !== 'all') {
-            const perm = userPermissions.find(p => p.companyId === companyId)
-            // If perm not found, deny. If found, check canEdit.
-            if (!perm || !perm.canEdit) return false
+            // 1. Check for Global Permission check (Company-wide edit)
+            const globalPerm = userPermissions.find(p =>
+                p.companyId === companyId &&
+                p.costCenterId === null &&
+                p.canEdit
+            )
+            if (globalPerm) return true
+
+            // 2. If no global permission, only BLOCK if we are strictly targeting the company (no child context)
+            const targetingChild = (costCenterId && costCenterId !== 'all')
+
+            if (!targetingChild) {
+                // Targeting company directly, but no global edit permission found.
+                return false
+            }
+
+            // If targeting child, we FALL THROUGH to check specific child permissions below.
         } else if (availableCompanies.length > 0) {
             // If no company selected, we defaulted to first available on Save, 
             // but here for UI feedback let's be strict or check if they have edit on ANY available.
