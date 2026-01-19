@@ -26,9 +26,8 @@ export async function verifyPermission(
         const companyPerm = perms.find(p => p.companyId === context.companyId)
         if (!companyPerm) return false
 
-        // If user has a "Global" permission for this company (no CC/Segment validation needed), 
+        // Se user has a "Global" permission for this company (no CC/Segment validation needed), 
         // and it allows the action, return TRUE immediately.
-        // This covers "Admins" defined via UserPermission logic (null/null)
         const isGlobalPerm = perms.find(p =>
             p.companyId === context.companyId &&
             p.costCenterId === null &&
@@ -38,7 +37,17 @@ export async function verifyPermission(
             return true
         }
 
-        if (!companyPerm[action]) return false
+        // CORREÇÃO:
+        // Se estamos mirando um filho específico (CC ou Segmento), NÃO negamos acesso só porque a permissão
+        // genérica encontrada primeiro é 'false'. Deixamos passar para a verificação específica (Passo 2 ou 3).
+        // SÓ negamos se o usuário estiver tentando editar a EMPRESA em si (sem CC/Segmento) e não tiver Global Perm.
+        const targetingSpecificChild = (context.costCenterId && context.costCenterId !== 'all') ||
+            (context.segmentId && context.segmentId !== 'all');
+
+        if (!targetingSpecificChild) {
+            // Alvo é a Empresa. Não tem permissão global.
+            return false;
+        }
     }
 
     // 2. Cost Center Level Check
