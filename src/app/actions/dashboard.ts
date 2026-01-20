@@ -289,7 +289,7 @@ export async function getDashboardChartsData(year: number, versionId?: string) {
     }
 
     // 2. Fetch Entries and Related Data
-    const [entries, clients, companies] = await Promise.all([
+    const [entries, clients, companies, costCenters, groupings] = await Promise.all([
         prisma.budgetEntry.findMany({
             where: entryWhere,
             include: {
@@ -300,8 +300,29 @@ export async function getDashboardChartsData(year: number, versionId?: string) {
             }
         }),
         prisma.client.findMany({ where: { tenantId } }),
-        prisma.company.findMany({ where: { tenantId } })
+        prisma.company.findMany({ where: { tenantId } }),
+        prisma.costCenter.findMany({ where: { tenantId } }),
+        prisma.grouping.findMany({ where: { tenantId } })
     ])
+
+    // Helper Maps (Same as Summary)
+    const ccToCompanyMap = new Map<string, string>()
+    const deptToCompanyMap = new Map<string, string>()
+
+    costCenters.forEach(cc => {
+        if (cc.groupingId) {
+            const dept = groupings.find(g => g.id === cc.groupingId)
+            if (dept && dept.companyId) {
+                ccToCompanyMap.set(cc.id, dept.companyId)
+            }
+        }
+    })
+
+    groupings.forEach(g => {
+        if (g.companyId) {
+            deptToCompanyMap.set(g.id, g.companyId)
+        }
+    })
 
     // 3. Aggregate By Client
     // We need "Gross Revenue" (Code 1) and "Gross Margin" (Code 5)
@@ -360,17 +381,21 @@ export async function getDashboardChartsData(year: number, versionId?: string) {
     const companyMap = new Map<string, number>()
 
     entries.forEach(e => {
-        // Identify Effective Company (Use logic similar to summary fix if needed, but here we have flat include)
-        // For High Level Chart, let's trust the "Prioritized Logic" or just use explicit Company ID?
-        // Let's use the explicit ID for speed, assuming the recent fix corrects the entries or we expect "good enough" for donut.
-        // Actually, the recent fix was *filtering*, so data layout might still be mixed.
-        // Let's just aggregate by e.companyId for now.
-        if (!e.companyId) return
+        // Resolve Effective Company
+        let effectiveCompanyId = e.companyId
+
+        if (e.costCenterId && ccToCompanyMap.has(e.costCenterId)) {
+            effectiveCompanyId = ccToCompanyMap.get(e.costCenterId)!
+        } else if (e.groupingId && deptToCompanyMap.has(e.groupingId)) {
+            effectiveCompanyId = deptToCompanyMap.get(e.groupingId)!
+        }
+
+        if (!effectiveCompanyId) return
 
         const code = e.account.code
         if (code.startsWith('1')) {
-            const existing = companyMap.get(e.companyId) || 0
-            companyMap.set(e.companyId, existing + e.amount)
+            const existing = companyMap.get(effectiveCompanyId) || 0
+            companyMap.set(effectiveCompanyId, existing + e.amount)
         }
     })
 
