@@ -34,10 +34,17 @@ export default async function DashboardLayout({
         }
     }
 
+    // Fetch fresh user role
+    const user = await prisma.user.findUnique({
+        where: { id: session.userId },
+        select: { role: true }
+    })
+    const freshRole = user?.role || session.role
+
     return (
         <DashboardClientLayout
             tenantName={tenantName}
-            userRole={session.role}
+            userRole={freshRole}
             userEmail={session.email}
         >
             {children}
