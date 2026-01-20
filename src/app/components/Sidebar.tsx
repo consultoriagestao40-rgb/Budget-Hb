@@ -20,8 +20,10 @@ export function Sidebar({
 
     const isSuperAdmin = userRole === 'SUPER_ADMIN' || userEmail === 'consultoria.gestao4.0@gmail.com'
 
+    const isAdmin = userRole === 'ADMIN' || isSuperAdmin
+
     const menuItems = [
-        // { name: 'Dashboard', path: '/dashboard', icon: <HomeIcon /> },
+        ...(isAdmin ? [{ name: 'Dashboard', path: '/dashboard', icon: <HomeIcon /> }] : []),
         { name: 'DRE Gerencial', path: '/dashboard/dre', icon: <ChartIcon /> },
         { name: 'Cadastros', path: '/dashboard/registrations', icon: <FolderIcon /> },
         { name: 'Configurações', path: '/dashboard/settings', icon: <SettingsIcon /> },
