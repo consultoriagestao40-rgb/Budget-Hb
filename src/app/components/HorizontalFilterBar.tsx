@@ -278,154 +278,26 @@ export function HorizontalFilterBar({
 
 
     // 3. Departments List:
-    const getCompatibleDepartments = (ignoreSegments = false) => {
-        const validCCsIgnoringDept = costCenters.filter(cc => {
-            // Check Company
-            if (currentFilters.companyIds.length > 0) {
-                const dept = departments.find(d => d.id === cc.groupingId)
-                if (!dept || !dept.companyId || !currentFilters.companyIds.includes(dept.companyId)) return false
-            }
-            // Check Client
-            if (currentFilters.clientIds.length > 0) {
-                if (!cc.clientId || !currentFilters.clientIds.includes(cc.clientId)) return false
-            }
-            // Check Cost Center Selection (Critical fix!)
-            if (currentFilters.costCenterIds.length > 0) {
-                if (!currentFilters.costCenterIds.includes(cc.id)) return false
-            }
-            // Check Segment
-            // If we are ignoring segments (to populate the Segment list), we skip this check on CCs too?
-            // Yes, because validating CCs by segment implicitly validates Depts by segment.
-            if (!ignoreSegments && currentFilters.segmentIds.length > 0) {
-                const validDeptIds = getValidDeptIdsForSegments()
-                if (validDeptIds && (!cc.groupingId || !validDeptIds.has(cc.groupingId))) return false
-            }
-            return true
-        })
-
-        const validDeptIdsFromCCs = new Set(validCCsIgnoringDept.map(cc => cc.groupingId).filter(Boolean))
-
-        // Get Departments directly compatible with Segment
-        const validDeptIdsFromSegments = getValidDeptIdsForSegments()
-
+    // User Request: Don't restrict Departments by Downstream filters (CC, Segment, Client).
+    // Only restrict by Upstream (Company).
+    const getCompatibleDepartments = () => {
         return departments.filter(d => {
             // 1. Basic Company Check
             if (currentFilters.companyIds.length > 0 && (!d.companyId || !currentFilters.companyIds.includes(d.companyId))) return false
-
-            // 2. Strict Dependence on CC/Client
-            if (currentFilters.clientIds.length > 0 || currentFilters.costCenterIds.length > 0) {
-                if (!validDeptIdsFromCCs.has(d.id)) return false
-            }
-
-            // 3. Strict Dependence on Segment
-            if (!ignoreSegments && currentFilters.segmentIds.length > 0 && validDeptIdsFromSegments) {
-                if (!validDeptIdsFromSegments.has(d.id)) return false
-            }
-
             return true
         })
     }
 
-    const filteredDepartments = getCompatibleDepartments(false)
-    const baseDepartmentsForSegments = getCompatibleDepartments(true)
+    const filteredDepartments = getCompatibleDepartments()
+    // baseDepartmentsForSegments is now identical to filteredDepartments (since we removed segment filter dependence)
+    // But we keep the variable for compatibility with downstream logic
+    const baseDepartmentsForSegments = filteredDepartments
 
 
     // 4. Companies List:
+    // User Request: Don't restrict Companies by ANY downstream filter. Show all.
     const getCompatibleCompanies = () => {
-        // Valid CCs ignoring Company filter
-        const validCCsIgnoringCompany = costCenters.filter(cc => {
-            if (currentFilters.clientIds.length > 0) {
-                if (!cc.clientId || !currentFilters.clientIds.includes(cc.clientId)) return false
-            }
-            if (currentFilters.departmentIds.length > 0) {
-                if (!cc.groupingId || !currentFilters.departmentIds.includes(cc.groupingId)) return false
-            }
-            // Check Cost Center Selection
-            if (currentFilters.costCenterIds.length > 0) {
-                if (!currentFilters.costCenterIds.includes(cc.id)) return false
-            }
-            // Check Segment
-            if (currentFilters.segmentIds.length > 0) {
-                const validDeptIds = getValidDeptIdsForSegments()
-                if (validDeptIds && (!cc.groupingId || !validDeptIds.has(cc.groupingId))) return false
-            }
-            return true
-        })
-
-        const validDeptIds = new Set(validCCsIgnoringCompany.map(cc => cc.groupingId).filter(Boolean))
-        const validCompanyIds = new Set<string>()
-
-        departments.forEach(d => {
-            // If Segment is selected, Dept must ALSO be in validDeptIdsFromSegments
-            // But validCCsIgnoringCompany already filtered CCs by Segment->Dept.
-            // So validDeptIds contains only depts valid for segments.
-            if (validDeptIds.has(d.id) && d.companyId) validCompanyIds.add(d.companyId)
-        })
-
-        // If NO filters active that constrain company (Client, Dept, CC), return all.
-        const isConstrained = currentFilters.clientIds.length > 0 || currentFilters.departmentIds.length > 0 || currentFilters.costCenterIds.length > 0 || currentFilters.segmentIds.length > 0
-
-        if (!isConstrained) return companies
-
-        return companies.filter(c => {
-            // 1. Must be in validCompanyIds (derived from CCs valid for Client/Dept/CC filters)
-            //    If Segments are the ONLY filter, validCCsIgnoringCompany handles it via Segment->Dept->CC check?
-            //    Yes, lines 346-349 filters CCs by Segment. 
-            //    So validCompanyIds derived from validCCs IS restricted by Segment.
-
-            // BUT: What if a Department has a Segment, but currently has NO Cost Centers linked to that Segment?
-            // The logic "Segment -> Dept -> CC -> Company" fails if the link "Dept -> CC" is empty for that specific segment linkage? 
-            // Actually, "Segment -> Dept" is strong. "Dept -> Company" is strong.
-            // "CC" is just a child of Dept.
-            // If I select Segment S (Dept D, Comp C), even if there are no CCs, I should see Comp C?
-            // Maybe. But DRE shows values from BudgetEntries, which link CC/Account.
-            // If there are no CCs, there might be no entries? 
-            // Wait, BudgetEntries can link Segment directly? 
-            // Schema says BudgetEntry has segmentId.
-            // So yes, we should support "Segment -> Dept -> Company" even without CCs.
-
-            // Fix: Explicit check for Segment -> Company relation
-            if (currentFilters.segmentIds.length > 0) {
-                const validDeptIds = getValidDeptIdsForSegments()
-                // If this company does NOT have any of the valid depts, it's invalid
-                // Find all depts of this company
-                const companyDepts = departments.filter(d => d.companyId === c.id)
-                const hasValidDept = companyDepts.some(d => validDeptIds?.has(d.id))
-
-                if (!hasValidDept) return false
-            }
-
-            // Also respect the validCompanyIds derived from CCs (for Client/CC filters)
-            // If only Segment is selected, validCCsIgnoringCompany (lines 334-350) filters CCs by Segment.
-            // validCompanyIds (lines 353-356) gets companies from those CCs.
-            // This works IF there are CCs. If no CCs, validCompanyIds might be empty -> showing nothing?
-            // Or if validCCs is empty, set is empty -> returns empty list.
-            // Be careful: If we want to show the Company even if no CCs exist (just structural link), we should relax this.
-            // But for DRE filtering, usually we care about data.
-            // However, the user request "When I select CEO (Segment), showing other Companies" implies structural filtering is desired.
-
-            // Combined Logic:
-            // 1. If Segment is selected, we rely on the `filteredDepartments` list.
-            //    The user confirmed Departments are correct. So companies must be derived from them.
-            if (currentFilters.segmentIds.length > 0) {
-                // Check if this company owns any of the currently valid/filtered departments.
-                // We use `filteredDepartments` because it already contains the correct logic for Segment->Dept.
-                const hasValidDeptInFilteredList = filteredDepartments.some(d => d.companyId === c.id)
-
-                if (!hasValidDeptInFilteredList) return false
-
-                // If ONLY Segment is active, we are done (return true).
-                // If other filters are active, we continue to check `validCompanyIds` (CC/Client logic).
-                // But wait, if `validCompanyIds` (derived from CCs) is potentially incomplete (orphans?), strict check might hide things.
-                // However, the issue is "Showing too much".
-                const otherFiltersActive = currentFilters.clientIds.length > 0 || currentFilters.costCenterIds.length > 0
-
-                if (!otherFiltersActive) return true
-            }
-
-            // If other filters are active, or no segment selected:
-            return validCompanyIds.has(c.id)
-        })
+        return companies
     }
 
     const filteredCompanies = getCompatibleCompanies()
