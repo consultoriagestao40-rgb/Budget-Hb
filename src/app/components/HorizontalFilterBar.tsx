@@ -278,7 +278,7 @@ export function HorizontalFilterBar({
 
 
     // 3. Departments List:
-    const getCompatibleDepartments = () => {
+    const getCompatibleDepartments = (ignoreSegments = false) => {
         const validCCsIgnoringDept = costCenters.filter(cc => {
             // Check Company
             if (currentFilters.companyIds.length > 0) {
@@ -293,9 +293,10 @@ export function HorizontalFilterBar({
             if (currentFilters.costCenterIds.length > 0) {
                 if (!currentFilters.costCenterIds.includes(cc.id)) return false
             }
-            // Check Segment (indirectly via Dept check logic below, but CC validity matter too?)
-            // If Segment is filtered, CCs in WRONG departments are invalid.
-            if (currentFilters.segmentIds.length > 0) {
+            // Check Segment
+            // If we are ignoring segments (to populate the Segment list), we skip this check on CCs too?
+            // Yes, because validating CCs by segment implicitly validates Depts by segment.
+            if (!ignoreSegments && currentFilters.segmentIds.length > 0) {
                 const validDeptIds = getValidDeptIdsForSegments()
                 if (validDeptIds && (!cc.groupingId || !validDeptIds.has(cc.groupingId))) return false
             }
@@ -317,7 +318,7 @@ export function HorizontalFilterBar({
             }
 
             // 3. Strict Dependence on Segment
-            if (currentFilters.segmentIds.length > 0 && validDeptIdsFromSegments) {
+            if (!ignoreSegments && currentFilters.segmentIds.length > 0 && validDeptIdsFromSegments) {
                 if (!validDeptIdsFromSegments.has(d.id)) return false
             }
 
@@ -325,7 +326,8 @@ export function HorizontalFilterBar({
         })
     }
 
-    const filteredDepartments = getCompatibleDepartments()
+    const filteredDepartments = getCompatibleDepartments(false)
+    const baseDepartmentsForSegments = getCompatibleDepartments(true)
 
 
     // 4. Companies List:
@@ -432,12 +434,13 @@ export function HorizontalFilterBar({
     // 5. Segments (Centro de Despesa)
     // Linked to Departments.
     // Must respect SELECTED Departments if any, otherwise all available compatible departments.
-    const effectiveDepartments = currentFilters.departmentIds.length > 0
-        ? filteredDepartments.filter(d => currentFilters.departmentIds.includes(d.id))
-        : filteredDepartments
+    // FIX: Use `baseDepartmentsForSegments` (ignores segment filter) to keep the list full.
+    const effectiveDepartmentsForSegments = currentFilters.departmentIds.length > 0
+        ? baseDepartmentsForSegments.filter(d => currentFilters.departmentIds.includes(d.id))
+        : baseDepartmentsForSegments
 
     const filteredSegments = (segments as any[]).filter(seg => {
-        return seg.groupingId && effectiveDepartments.some(d => d.id === seg.groupingId)
+        return seg.groupingId && effectiveDepartmentsForSegments.some(d => d.id === seg.groupingId)
     })
 
     // Helper: Effective Cost Centers for downstream filters
