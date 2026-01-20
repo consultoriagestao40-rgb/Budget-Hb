@@ -176,11 +176,19 @@ export async function getDashboardSummary(year: number, versionId?: string) {
 
     for (const company of companies) {
         // Filter entries for this company (Robust check: Direct ID, Relation via CC, or Relation via Dept)
+        // Filter entries for this company using STRICT Hierarchy Precedence
+        // We only include an entry if its ULTIMATE owner is this company.
+        // Priority: Cost Center's Company > Department's Company > Entry's Company
         const companyEntries = entries.filter(e => {
-            if (e.companyId === company.id) return true
-            if (e.costCenterId && ccToCompanyMap.get(e.costCenterId) === company.id) return true
-            if (e.groupingId && deptToCompanyMap.get(e.groupingId) === company.id) return true
-            return false
+            let effectiveCompanyId = e.companyId
+
+            if (e.costCenterId && ccToCompanyMap.has(e.costCenterId)) {
+                effectiveCompanyId = ccToCompanyMap.get(e.costCenterId)!
+            } else if (e.groupingId && deptToCompanyMap.has(e.groupingId)) {
+                effectiveCompanyId = deptToCompanyMap.get(e.groupingId)!
+            }
+
+            return effectiveCompanyId === company.id
         })
 
         // Run DRE Engine
@@ -201,7 +209,15 @@ export async function getDashboardSummary(year: number, versionId?: string) {
         // Find CCs active in this company's entries:
         const activeCCIds = new Set(companyEntries.map(e => e.costCenterId).filter(id => id !== null) as string[])
 
-        const companyCCs = costCenters.filter(cc => activeCCIds.has(cc.id))
+        const companyCCs = costCenters.filter(cc => {
+            if (!activeCCIds.has(cc.id)) return false
+
+            // Strict Hierarchy Check: If CC has a known owner company, it MUST match
+            if (ccToCompanyMap.has(cc.id)) {
+                return ccToCompanyMap.get(cc.id) === company.id
+            }
+            return true // Fallback for orphans (assume they belong if their entries ended up here)
+        })
 
         for (const cc of companyCCs) {
             const ccEntries = companyEntries.filter(e => e.costCenterId === cc.id)
