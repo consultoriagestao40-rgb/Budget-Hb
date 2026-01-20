@@ -23,7 +23,7 @@ export function Sidebar({
     const isAdmin = userRole === 'ADMIN' || isSuperAdmin
 
     const menuItems = [
-        ...(isAdmin ? [{ name: 'Dashboard', path: '/dashboard', icon: <HomeIcon /> }] : []),
+        { name: 'Dashboard', path: '/dashboard', icon: <HomeIcon /> },
         { name: 'DRE Gerencial', path: '/dashboard/dre', icon: <ChartIcon /> },
         { name: 'Cadastros', path: '/dashboard/registrations', icon: <FolderIcon /> },
         { name: 'Configurações', path: '/dashboard/settings', icon: <SettingsIcon /> },
