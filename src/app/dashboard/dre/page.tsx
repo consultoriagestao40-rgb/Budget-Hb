@@ -307,7 +307,8 @@ export default async function DrePage({
                         companyId: true,
                         costCenterId: true,
                         segmentId: true,
-                        canView: true
+                        canView: true,
+                        canEdit: true
                     }
                 }
             }
@@ -321,7 +322,8 @@ export default async function DrePage({
                     select: {
                         companyId: true,
                         costCenterId: true,
-                        canView: true
+                        canView: true,
+                        canEdit: true
                     }
                 }
             }
