@@ -6,6 +6,7 @@ import { getIronSession } from 'iron-session'
 import { cookies } from 'next/headers'
 import { sessionOptions, SessionData } from '@/lib/session'
 import { redirect } from 'next/navigation'
+import { PeriodSelector } from '../components/PeriodSelector'
 import { YearSelector } from '../components/YearSelector'
 import { VersionSelector } from '../components/VersionSelector'
 
@@ -23,6 +24,29 @@ export default async function DashboardPage({
     const yearParam = resolvedParams.year as string | undefined
     const currentYearStr = yearParam || '2025' // Default logic below handles clamping
     const rawYear = parseInt(currentYearStr)
+
+    // Period Parsing
+    const periodParam = (resolvedParams.period as string) || 'ALL'
+    let monthStart: number | undefined
+    let monthEnd: number | undefined
+
+    if (periodParam === 'ALL') {
+        monthStart = 1; monthEnd = 12
+    } else if (periodParam.startsWith('M')) {
+        const m = parseInt(periodParam.replace('M', ''))
+        monthStart = m; monthEnd = m
+    } else if (periodParam.endsWith('S')) {
+        const s = parseInt(periodParam[0])
+        monthStart = (s - 1) * 6 + 1
+        monthEnd = s * 6
+    } else if (periodParam.endsWith('Q')) {
+        const q = parseInt(periodParam[0])
+        monthStart = (q - 1) * 3 + 1
+        monthEnd = q * 3
+    }
+
+    // Fallback/Safety
+    if (!monthStart || !monthEnd) { monthStart = 1; monthEnd = 12 }
 
     const tenantId = session.tenantId
 
@@ -53,8 +77,8 @@ export default async function DashboardPage({
     })
     const userRole = user?.role || 'USER'
 
-    const summaryData = await getDashboardSummary(currentYear, activeVersionId)
-    const chartsData = await getDashboardChartsData(currentYear, activeVersionId)
+    const summaryData = await getDashboardSummary(currentYear, activeVersionId, monthStart, monthEnd)
+    const chartsData = await getDashboardChartsData(currentYear, activeVersionId, monthStart, monthEnd)
 
     return (
         <div className="space-y-6">
@@ -68,6 +92,7 @@ export default async function DashboardPage({
                         versions={budgetVersions}
                         currentVersionId={activeVersionId}
                     />
+                    <PeriodSelector />
                     <YearSelector
                         currentYear={currentYear}
                         minYear={minYear}

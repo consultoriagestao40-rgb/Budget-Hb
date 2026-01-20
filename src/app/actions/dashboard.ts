@@ -18,7 +18,7 @@ async function getSession() {
     return session
 }
 
-export async function getDashboardSummary(year: number, versionId?: string) {
+export async function getDashboardSummary(year: number, versionId?: string, monthStart?: number, monthEnd?: number) {
     const session = await getSession()
     const tenantId = session.tenantId
 
@@ -59,7 +59,13 @@ export async function getDashboardSummary(year: number, versionId?: string) {
     const entryWhere: any = {
         tenantId,
         year,
-        ...(versionId ? { budgetVersionId: versionId } : {})
+        ...(versionId ? { budgetVersionId: versionId } : {}),
+        key_period: (monthStart && monthEnd) ? { month: { gte: monthStart, lte: monthEnd } } : undefined
+    }
+    // Clean up key_period temp key
+    if (entryWhere.key_period) {
+        Object.assign(entryWhere, entryWhere.key_period)
+        delete entryWhere.key_period
     }
 
     // Apply Permissions (Company OR Cost Center OR Department)
@@ -252,7 +258,7 @@ export async function getDashboardSummary(year: number, versionId?: string) {
 }
 
 // Helper to calculate Contribution Margin and Revenue for Charts
-export async function getDashboardChartsData(year: number, versionId?: string) {
+export async function getDashboardChartsData(year: number, versionId?: string, monthStart?: number, monthEnd?: number) {
     const session = await getSession()
     const tenantId = session.tenantId
 
@@ -270,7 +276,12 @@ export async function getDashboardChartsData(year: number, versionId?: string) {
     const entryWhere: any = {
         tenantId,
         year,
-        ...(versionId ? { budgetVersionId: versionId } : {})
+        ...(versionId ? { budgetVersionId: versionId } : {}),
+        key_period: (monthStart && monthEnd) ? { month: { gte: monthStart, lte: monthEnd } } : undefined
+    }
+    if (entryWhere.key_period) {
+        Object.assign(entryWhere, entryWhere.key_period)
+        delete entryWhere.key_period
     }
 
     if (allowedCompanyIds.length > 0) {
